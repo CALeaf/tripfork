@@ -42,6 +42,7 @@ test("server-renders the TripFork decision workspace", async () => {
   assert.match(html, /What matters most on this trip/);
   assert.match(html, /Overall fit/);
   assert.match(html, /Hawaii weather change/);
+  assert.match(html, /Edit inputs/);
   assert.match(html, /Fork a new trip/);
   assert.match(html, />中文</);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
@@ -121,4 +122,6 @@ test("builds transport branches from an existing itinerary", async () => {
   );
   assert.equal(payload.trip.inputSummary.existingPlan.includes("Las Vegas"), true);
   assert.equal(payload.trip.inputSummary.lockedItems.includes("Sunday night"), true);
+  assert.equal(payload.trip.originalInput.destination, "Utah and Arizona");
+  assert.deepEqual(payload.trip.originalInput.transportModes, ["Drive my car", "Fly + rental car"]);
 });

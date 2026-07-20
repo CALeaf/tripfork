@@ -426,6 +426,10 @@ function toDocument(generated: z.infer<typeof GeneratedTrip>, input: TripInput):
   return {
     ...generated,
     id: crypto.randomUUID(),
+    originalInput: {
+      ...input,
+      transportModes: [...input.transportModes],
+    },
     sourceNotes: [input.notes, input.places, input.mustHaves, input.fixedBookings, input.lockedItems, input.movableItems, input.optionalItems, input.constraints]
       .filter(Boolean)
       .join("\n\n"),

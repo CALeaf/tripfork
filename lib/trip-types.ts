@@ -50,6 +50,7 @@ export type TripDocument = {
   travelers: string;
   budget: string;
   sourceNotes: string;
+  originalInput?: TripInput;
   inputSummary?: {
     origin: string;
     existingPlan: string;

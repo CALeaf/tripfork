@@ -27,6 +27,46 @@ function createEmptyInput(locale: Locale): TripInput {
   };
 }
 
+const canonicalTransport: Record<string, string> = {
+  "自驾": "Drive my car",
+  "飞机 + 租车": "Fly + rental car",
+  "飞机 + 公交": "Fly + public transit",
+  "飞机 + 公共交通": "Fly + public transit",
+  "火车": "Train",
+  "让 TripFork 帮我搭配": "Let TripFork suggest",
+  "TripFork 推荐的组合交通": "Let TripFork suggest",
+};
+
+function editableInputFromTrip(trip: TripDocument, locale: Locale): TripInput {
+  if (trip.originalInput) {
+    return {
+      ...trip.originalInput,
+      transportModes: [...trip.originalInput.transportModes],
+    };
+  }
+  const summary = trip.inputSummary;
+  const transportModes = (summary?.transportModes ?? [])
+    .map((mode) => canonicalTransport[mode] ?? mode)
+    .filter((mode) => transportChoices.includes(mode));
+  return {
+    ...createEmptyInput(locale),
+    title: trip.title,
+    destination: trip.destination,
+    dates: trip.dateSummary,
+    travelers: trip.travelers,
+    budget: trip.budget,
+    origin: summary?.origin ?? "",
+    notes: summary?.existingPlan || trip.sourceNotes,
+    places: summary?.places ?? "",
+    lockedItems: summary?.lockedItems ?? "",
+    movableItems: summary?.movableItems ?? "",
+    optionalItems: summary?.optionalItems ?? "",
+    transportModes: transportModes.length ? transportModes : createEmptyInput(locale).transportModes,
+    uncertainty: trip.decision.name,
+    decisionDate: trip.decision.decisionDate,
+  };
+}
+
 const transportChoices = [
   "Drive my car",
   "Fly + rental car",
@@ -130,6 +170,8 @@ export function TripForkApp() {
   const [preference, setPreference] = useState<PreferenceId>("balanced");
   const [differencesOnly, setDifferencesOnly] = useState(false);
   const [isComposerOpen, setComposerOpen] = useState(false);
+  const [isEditingInputs, setEditingInputs] = useState(false);
+  const [editingTripId, setEditingTripId] = useState<string | null>(null);
   const [tripInput, setTripInput] = useState<TripInput>(() => createEmptyInput("en"));
   const [isGenerating, setGenerating] = useState(false);
   const [notice, setNotice] = useState("Showing the sample trip. Create yours when you’re ready.");
@@ -350,6 +392,20 @@ export function TripForkApp() {
     setNotice(copy.preferenceUpdated);
   }
 
+  function startNewTrip() {
+    setEditingInputs(false);
+    setEditingTripId(null);
+    setTripInput(createEmptyInput(locale));
+    setComposerOpen(true);
+  }
+
+  function editInputs() {
+    setEditingInputs(true);
+    setEditingTripId(activeIsSample ? null : activeTrip.id);
+    setTripInput(editableInputFromTrip(activeTrip, locale));
+    setComposerOpen(true);
+  }
+
   function setStatus(status: DecisionStatus) {
     updateActive((trip) => ({ ...trip, decision: { ...trip.decision, status } }));
     setNotice(copy.outcomeUpdated);
@@ -367,14 +423,19 @@ export function TripForkApp() {
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error ?? "Could not compare this trip.");
-      const trip = payload.trip as TripDocument;
+      const generatedTrip = payload.trip as TripDocument;
+      const trip = editingTripId ? { ...generatedTrip, id: editingTripId } : generatedTrip;
       setActiveTrip(trip);
       setSelected(trip.branches.map((branch) => branch.id));
       setDirty(true);
       setComposerOpen(false);
+      setEditingInputs(false);
+      setEditingTripId(null);
       setTripInput(createEmptyInput(locale));
       setNotice(
-        payload.source === "openai"
+        isEditingInputs
+          ? copy.inputsUpdated
+          : payload.source === "openai"
           ? locale === "zh" ? "几种方案都整理好了，看看哪一种更适合你。" : "Your full comparison is ready. Review it, then save it."
           : locale === "zh" ? "演示方案已经整理好了。" : "A complete demo comparison is ready. Add OPENAI_API_KEY for live AI planning.",
       );
@@ -479,7 +540,7 @@ export function TripForkApp() {
               <button key={option} type="button" className={locale === option ? "active" : ""} onClick={() => changeLocale(option)} aria-pressed={locale === option}>{localeNames[option]}</button>
             ))}
           </div>
-          <button className="button button-dark" onClick={() => setComposerOpen(true)}>{copy.newTrip} <span aria-hidden="true">↗</span></button>
+          <button className="button button-dark" onClick={startNewTrip}>{copy.newTrip} <span aria-hidden="true">↗</span></button>
         </div>
       </header>
 
@@ -488,7 +549,7 @@ export function TripForkApp() {
           <div className="eyebrow"><span className="live-dot" /> {copy.heroEyebrow}</div>
           <h1>{copy.heroTitleOne}<br />{copy.heroTitleTwo}</h1>
           <p>{copy.heroDescription}</p>
-          <button className="button button-dark hero-cta" onClick={() => setComposerOpen(true)}>{copy.buildComparison}</button>
+          <button className="button button-dark hero-cta" onClick={startNewTrip}>{copy.buildComparison}</button>
           <div className="hero-examples">
             <span>{copy.tryExample}</span>
             <button type="button" onClick={() => openExample(sampleTrip.id)}>{copy.southwestExample}</button>
@@ -517,6 +578,7 @@ export function TripForkApp() {
           </label>
           <div className="workspace-actions">
             {activeIsSaved && <button className="text-button danger" onClick={deleteCurrentTrip}>{copy.delete}</button>}
+            <button className="button button-quiet" onClick={editInputs}>{copy.editInputs}</button>
             <button className="button button-quiet" onClick={exportTrip}>{copy.export}</button>
             <button className="button button-dark" onClick={saveCurrentTrip} disabled={isSaving || activeIsSample}>
               {isSaving ? copy.saving : dirty ? copy.saveChanges : copy.saved}
@@ -738,9 +800,9 @@ export function TripForkApp() {
         <div className="modal-backdrop" role="presentation" onMouseDown={() => !isGenerating && setComposerOpen(false)}>
           <section className="composer" role="dialog" aria-modal="true" aria-labelledby="composer-title" onMouseDown={(event) => event.stopPropagation()}>
             <button className="modal-close" onClick={() => setComposerOpen(false)} aria-label={copy.close}>×</button>
-            <span className="eyebrow">{copy.composerEyebrow}</span>
-            <h2 id="composer-title">{copy.composerTitle}</h2>
-            <p>{copy.composerBody}</p>
+            <span className="eyebrow">{isEditingInputs ? copy.editComposerEyebrow : copy.composerEyebrow}</span>
+            <h2 id="composer-title">{isEditingInputs ? copy.editComposerTitle : copy.composerTitle}</h2>
+            <p>{isEditingInputs ? copy.editComposerBody : copy.composerBody}</p>
             <form onSubmit={generateTrip} className="trip-form">
               <div className="form-grid">
                 <label><span>{copy.tripName}</span><input value={tripInput.title} onChange={(e) => setTripInput({ ...tripInput, title: e.target.value })} placeholder={locale === "zh" ? "夏威夷大岛 7 日" : "Big Island in 7 days"} /></label>
@@ -774,7 +836,7 @@ export function TripForkApp() {
                 <label><span>{copy.otherUncertain}</span><textarea rows={3} value={tripInput.uncertainty} onChange={(e) => setTripInput({ ...tripInput, uncertainty: e.target.value })} placeholder={locale === "zh" ? "例如：The Wave 抽签、火山活动、山顶天气" : "Optional: The Wave lottery; volcano activity; summit weather"} /></label>
                 <label><span>{copy.constraints}</span><textarea rows={3} value={tripInput.constraints} onChange={(e) => setTripInput({ ...tripInput, constraints: e.target.value })} placeholder={locale === "zh" ? "最长驾驶时间、行动能力、预算、需要请假的工作日" : "Max driving, mobility, budget, workdays"} /></label>
               </div>
-              <div className="composer-footer"><small>{copy.liveDataDisclaimer}</small><button className="button button-dark" disabled={isGenerating}>{isGenerating ? copy.generating : copy.buildComparison}</button></div>
+              <div className="composer-footer"><small>{copy.liveDataDisclaimer}</small><button className="button button-dark" disabled={isGenerating}>{isGenerating ? (isEditingInputs ? copy.rebuilding : copy.generating) : (isEditingInputs ? copy.rebuildComparison : copy.buildComparison)}</button></div>
             </form>
           </section>
         </div>

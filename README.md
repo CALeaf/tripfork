@@ -39,6 +39,8 @@ Users can:
   car**, **fly + public transit**, or **train**;
 - turn that input into a complete comparison that replaces the sample in the
   main workspace;
+- reopen and edit the original inputs, then rebuild the comparison without
+  creating a duplicate saved trip;
 - compare two or three complete itinerary branches side by side;
 - switch an uncertain event between pending, positive, and negative outcomes;
 - see the recommended branch change without rebuilding the trip;

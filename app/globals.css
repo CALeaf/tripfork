@@ -22,7 +22,7 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font-family: var(--font-body), Arial, sans-serif;
+  font-family: var(--font-body), "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -64,7 +64,7 @@ a {
 .brand {
   align-items: center;
   display: inline-flex;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-display), "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 20px;
   font-weight: 800;
   gap: 10px;
@@ -119,8 +119,38 @@ a {
   color: var(--ink);
 }
 
-.site-header > .button {
+.header-actions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
   justify-self: end;
+}
+
+.language-switch {
+  align-items: center;
+  background: rgba(24, 34, 31, 0.07);
+  border: 1px solid rgba(24, 34, 31, 0.1);
+  border-radius: 999px;
+  display: flex;
+  padding: 3px;
+}
+
+.language-switch button {
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: #68716d;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.language-switch button.active {
+  background: white;
+  box-shadow: 0 2px 9px rgba(24, 34, 31, 0.1);
+  color: var(--ink);
 }
 
 .button {
@@ -1667,10 +1697,27 @@ footer > span {
     display: none;
   }
 
+  .header-actions {
+    gap: 7px;
+  }
+
   .site-header .button {
     font-size: 12px;
     min-height: 40px;
     padding: 0 14px;
+  }
+
+  .language-switch button {
+    min-height: 28px;
+    padding: 0 8px;
+  }
+
+  .header-actions .button span {
+    display: none;
+  }
+
+  .header-actions .button {
+    max-width: 140px;
   }
 
   .hero {

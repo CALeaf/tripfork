@@ -40,7 +40,46 @@ test("server-renders the TripFork decision workspace", async () => {
   assert.match(html, /Door-to-door transit/);
   assert.match(html, /Luggage freedom/);
   assert.match(html, /Fork a new trip/);
+  assert.match(html, />中文</);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
+});
+
+test("returns a Chinese comparison when Chinese is selected", async () => {
+  const response = await request("/api/compare", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      locale: "zh",
+      trip: {
+        title: "美西交通对比",
+        destination: "犹他和亚利桑那",
+        dates: "6 天",
+        travelers: "2 人",
+        budget: "$3,000",
+        origin: "旧金山",
+        notes: "第一天开车到拉斯维加斯，之后游览锡安、布莱斯、佩吉和大峡谷，周日晚回家。",
+        places: "锡安、布莱斯、佩吉、大峡谷",
+        mustHaves: "锡安和大峡谷",
+        fixedBookings: "周五下午 1:15 羚羊谷",
+        lockedItems: "周日晚回家",
+        movableItems: "布莱斯日出",
+        optionalItems: "鲍威尔湖",
+        transportModes: ["Drive my car", "Fly + rental car"],
+        uncertainty: "",
+        decisionDate: "预订前",
+        constraints: "避免连续两天驾驶九小时",
+      },
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.source, "demo");
+  assert.deepEqual(
+    payload.trip.branches.map((branch) => branch.transportMode),
+    ["自驾", "飞机 + 租车"],
+  );
+  assert.match(payload.trip.recommendations.pending.rationale, /门到门时间/);
 });
 
 test("builds transport branches from an existing itinerary", async () => {

@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import type { TripDocument, TripInput } from "@/lib/trip-types";
+import type { Locale } from "@/lib/i18n";
 
 export const runtime = "edge";
 
@@ -316,6 +317,110 @@ function demoTrip(input: TripInput): z.infer<typeof GeneratedTrip> {
   };
 }
 
+function demoTripZh(input: TripInput): z.infer<typeof GeneratedTrip> {
+  const modeNames: Record<string, string> = {
+    "Drive my car": "自驾",
+    "Fly + rental car": "飞机 + 租车",
+    "Fly + public transit": "飞机 + 公共交通",
+    Train: "火车",
+    "Let TripFork suggest": "TripFork 推荐的组合交通",
+  };
+  const profiles = input.transportModes.slice(0, 3).map((mode, index) => {
+    const normalizedMode = mode.toLowerCase();
+    const isDrive = normalizedMode.includes("drive");
+    const isRental = normalizedMode.includes("rental");
+    const isTransit = normalizedMode.includes("transit");
+    const isTrain = normalizedMode.includes("train");
+    const displayMode = modeNames[mode] ?? mode;
+    return {
+      id: `transport-${index + 1}`,
+      name: displayMode,
+      subtitle: isDrive
+        ? "路线和行李自由度最高"
+        : isRental
+          ? "省下长途时间，同时保留目的地自驾体验"
+          : isTransit
+            ? "不用开车，但需要配合班次"
+            : isTrain
+              ? "移动更慢，但途中可以休息"
+              : "兼顾时间、花销和体验的交通组合",
+      days: 6,
+      cost: isDrive ? 1800 : isRental ? 2500 : isTransit ? 2200 : isTrain ? 2000 : 2300,
+      transportMode: displayMode,
+      transitHours: isDrive ? 28 : isRental ? 18 : isTransit ? 20 : isTrain ? 32 : 20,
+      driveHours: isDrive ? 28 : isRental ? 12 : isTransit ? 0 : isTrain ? 4 : 14,
+      luggageFlexibility: (isDrive ? "High" : isRental ? "Medium" : "Low") as "Low" | "Medium" | "High",
+      bookingComplexity: (isDrive ? "Low" : isRental ? "High" : "Medium") as "Low" | "Medium" | "High",
+      fatigue: isDrive ? 8 : isRental ? 6 : isTransit ? 5 : isTrain ? 5 : 6,
+      experienceScore: isDrive ? 8 : isRental ? 9 : isTransit ? 7 : isTrain ? 7 : 9,
+      flexibility: (isDrive ? "High" : isRental ? "Medium" : "Low") as "Low" | "Medium" | "High",
+      summary: isDrive
+        ? "最大程度保留已有路线，也最容易临时增加停靠点。"
+        : isRental
+          ? "最长的一段改乘飞机，落地后继续租车完成环线。"
+          : "减少大部分驾驶，但路线需要围绕班次和换乘点安排。",
+      changes: isDrive
+        ? ["保留基准路线", "行李不受航空限制"]
+        : isRental
+          ? ["用飞机替代最长的一段驾驶", "在目的地机场领取租车"]
+          : ["把地点集中在交通枢纽附近", "调整或放弃必须开车才能到达的停靠点"],
+      tradeoffs: isDrive
+        ? ["长时间驾驶", "油费和停车费", "驾驶疲劳"]
+        : isRental
+          ? ["机票和租车花销", "机场和取车时间", "更多预订环节"]
+          : ["临时绕行自由", "行李自由度", "偏远地点"],
+      timeline: [
+        { day: "基准计划", title: input.notes.slice(0, 72), detail: `围绕“${displayMode}”重新整理` },
+        { day: "主要地点", title: input.places || input.destination, detail: "固定项目保留；可移动和可舍弃项目承担取舍" },
+      ],
+    };
+  });
+  const first = profiles[0];
+  const second = profiles[1] ?? first;
+  return {
+    title: input.title || `${input.destination}：比较每一种走法`,
+    destination: input.destination,
+    dateSummary: input.dates || "日期未确定",
+    travelers: input.travelers || "人数未确定",
+    budget: input.budget || "预算未确定",
+    decision: {
+      name: input.uncertainty || "最终路线选择",
+      question: input.transportModes.length > 1
+        ? `哪一种交通取舍更合适：${profiles.map((profile) => profile.transportMode).join(" vs ")}？`
+        : `“${input.uncertainty || "最终路线"}”确定后，计划应该怎么调整？`,
+      decisionDate: input.decisionDate || "决策日期未确定",
+      positiveLabel: first.name,
+      negativeLabel: second.name,
+    },
+    recommendations: {
+      pending: {
+        branchId: second.id,
+        title: `预订前先完整比较“${first.name}”和“${second.name}”。`,
+        rationale: "不要只看票价或驾驶时间，要一起比较门到门时间和整趟旅行的总花销。",
+        actions: ["核对门到门交通时间", "把油费、停车、机票和租车放在一起计算"],
+      },
+      positive: {
+        branchId: first.id,
+        title: `选择“${first.name}”。`,
+        rationale: "这个方案尽量保留原始计划和固定项目，同时把交通方式带来的取舍说清楚。",
+        actions: ["核实完整交通花销", "确认固定预订", "释放未采用的备选方案"],
+      },
+      negative: {
+        branchId: second.id,
+        title: `选择“${second.name}”。`,
+        rationale: "这个方案用花销换回时间或体力，并明确展示与原计划相比需要改动什么。",
+        actions: ["预订长途交通", "确认目的地内的移动方式", "释放未采用的备选方案"],
+      },
+    },
+    branches: profiles,
+    checklist: [
+      { label: "核对所有免费取消截止时间", dueDate: "今天", kind: "check" },
+      { label: "锁定可退款的备选方案", dueDate: input.decisionDate || "截止日前", kind: "book" },
+      { label: "确定最终变量结果", dueDate: input.decisionDate || "决策日", kind: "decide" },
+    ],
+  };
+}
+
 function toDocument(generated: z.infer<typeof GeneratedTrip>, input: TripInput): TripDocument {
   return {
     ...generated,
@@ -344,17 +449,18 @@ function toDocument(generated: z.infer<typeof GeneratedTrip>, input: TripInput):
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
+  const locale: Locale = body?.locale === "zh" ? "zh" : "en";
   const input = normalizeInput(body?.trip);
   if (!input) {
     return Response.json(
-      { error: "Add a destination and the itinerary you already have. Choose transport modes or add an uncertainty to compare." },
+      { error: locale === "zh" ? "请填写目的地和已有行程，并选择要比较的交通方式或不确定变量。" : "Add a destination and the itinerary you already have. Choose transport modes or add an uncertainty to compare." },
       { status: 400 },
     );
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return Response.json({ trip: toDocument(demoTrip(input), input), source: "demo" });
+    return Response.json({ trip: toDocument(locale === "zh" ? demoTripZh(input) : demoTrip(input), input), source: "demo" });
   }
 
   try {
@@ -366,7 +472,7 @@ export async function POST(request: Request) {
         {
           role: "system",
           content:
-            "You are TripFork, a travel comparison engine. Treat the user's existing plan as the baseline, not disposable notes. Never move locked items. Move only movable items and drop only optional items. When 2–3 transport modes are requested, create a distinct complete branch for each one. Compare door-to-door transit time, driving time, full-trip cost (fuel, parking, flights, rental, local transit), fatigue, luggage freedom, booking complexity, route flexibility, and which supplied places no longer fit. Never claim live prices or availability; costs are labeled estimates. Preserve must-haves where feasible and state honest tradeoffs when they cannot all fit. Every pending/positive/negative recommendation must reference an existing branch id. Produce concrete next actions, not generic travel advice.",
+            `You are TripFork, a travel comparison engine. Treat the user's existing plan as the baseline, not disposable notes. Never move locked items. Move only movable items and drop only optional items. When 2–3 transport modes are requested, create a distinct complete branch for each one. Compare door-to-door transit time, driving time, full-trip cost (fuel, parking, flights, rental, local transit), fatigue, luggage freedom, booking complexity, route flexibility, and which supplied places no longer fit. Never claim live prices or availability; costs are labeled estimates. Preserve must-haves where feasible and state honest tradeoffs when they cannot all fit. Every pending/positive/negative recommendation must reference an existing branch id. Produce concrete next actions, not generic travel advice. Return every user-facing string in ${locale === "zh" ? "Simplified Chinese" : "English"}.`,
         },
         {
           role: "user",
@@ -379,6 +485,6 @@ export async function POST(request: Request) {
     return Response.json({ trip: toDocument(response.output_parsed, input), source: "openai" });
   } catch (error) {
     console.error("TripFork comparison failed", error);
-    return Response.json({ error: "The live comparison failed. Please try again." }, { status: 502 });
+    return Response.json({ error: locale === "zh" ? "实时对比失败，请稍后再试。" : "The live comparison failed. Please try again." }, { status: 502 });
   }
 }

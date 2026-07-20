@@ -10,13 +10,27 @@ const emptyInput: TripInput = {
   dates: "",
   travelers: "2 travelers",
   budget: "",
+  origin: "",
   notes: "",
+  places: "",
   mustHaves: "",
   fixedBookings: "",
+  lockedItems: "",
+  movableItems: "",
+  optionalItems: "",
+  transportModes: ["Drive my car", "Fly + rental car"],
   uncertainty: "",
   decisionDate: "",
   constraints: "",
 };
+
+const transportChoices = [
+  "Drive my car",
+  "Fly + rental car",
+  "Fly + public transit",
+  "Train",
+  "Let TripFork suggest",
+];
 
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -40,6 +54,19 @@ function tripMarkdown(trip: TripDocument) {
     "",
     `${trip.destination} · ${trip.dateSummary} · ${trip.travelers} · Budget ${trip.budget}`,
     "",
+    ...(trip.inputSummary
+      ? [
+          "## Starting point",
+          "",
+          `Origin: ${trip.inputSummary.origin || "Not specified"}`,
+          `Transport options: ${trip.inputSummary.transportModes.join(", ") || "Not specified"}`,
+          `Places supplied: ${trip.inputSummary.places || "Not specified"}`,
+          `Must keep: ${trip.inputSummary.lockedItems || "Not specified"}`,
+          `Can move: ${trip.inputSummary.movableItems || "Not specified"}`,
+          `Can skip: ${trip.inputSummary.optionalItems || "Not specified"}`,
+          "",
+        ]
+      : []),
     `## Current recommendation: ${recommendation.title}`,
     "",
     recommendation.rationale,
@@ -53,7 +80,7 @@ function tripMarkdown(trip: TripDocument) {
     lines.push(
       `### ${branch.name}${recommendation.branchId === branch.id ? " — recommended" : ""}`,
       "",
-      `${branch.days} days · ${money.format(branch.cost)} estimated · ${branch.driveHours}h driving · fatigue ${branch.fatigue}/10`,
+      `${branch.transportMode || "Mixed transport"} · ${branch.days} days · ${money.format(branch.cost)} estimated · ${branch.transitHours ?? branch.driveHours}h total transit · ${branch.driveHours}h driving · fatigue ${branch.fatigue}/10`,
       "",
       branch.summary,
       "",
@@ -107,6 +134,19 @@ export function TripForkApp() {
         return current.length > 2 ? current.filter((branchId) => branchId !== id) : current;
       }
       return current.length < 3 ? [...current, id] : current;
+    });
+  }
+
+  function toggleTransport(mode: string) {
+    setTripInput((current) => {
+      const selected = current.transportModes.includes(mode);
+      if (selected && current.transportModes.length === 1) return current;
+      return {
+        ...current,
+        transportModes: selected
+          ? current.transportModes.filter((item) => item !== mode)
+          : [...current.transportModes, mode],
+      };
     });
   }
 
@@ -285,6 +325,23 @@ export function TripForkApp() {
           </div>
         </div>
 
+        {activeTrip.inputSummary && (
+          <details className="input-receipt">
+            <summary>
+              <span>Your baseline and inputs</span>
+              <b>{activeTrip.inputSummary.transportModes.join(" vs ")}</b>
+            </summary>
+            <div className="input-receipt-grid">
+              <div><span>Starting from</span><p>{activeTrip.inputSummary.origin || "Not specified"}</p></div>
+              <div><span>Places / stops</span><p>{activeTrip.inputSummary.places || "Not specified"}</p></div>
+              <div><span>Must keep</span><p>{activeTrip.inputSummary.lockedItems || "Not specified"}</p></div>
+              <div><span>Can move</span><p>{activeTrip.inputSummary.movableItems || "Not specified"}</p></div>
+              <div><span>Can skip</span><p>{activeTrip.inputSummary.optionalItems || "Not specified"}</p></div>
+              <div className="baseline-plan"><span>Existing plan</span><p>{activeTrip.inputSummary.existingPlan}</p></div>
+            </div>
+          </details>
+        )}
+
         <div className="decision-banner">
           <div className="decision-icon" aria-hidden="true">↳</div>
           <div>
@@ -319,12 +376,19 @@ export function TripForkApp() {
                     <div className="branch-topline"><span>PLAN {String.fromCharCode(65 + index)}</span><div>{isRecommended && <b>Recommended</b>}{isCommitted && <b className="chosen-badge">Chosen</b>}</div></div>
                     <h3>{branch.name}</h3>
                     <p className="branch-subtitle">{branch.subtitle}</p>
+                    <div className="transport-label">{branch.transportMode || "Mixed transport"}</div>
                     <p className="branch-summary">{branch.summary}</p>
                     <div className="metrics">
                       <div><strong>{branch.days}</strong><span>days</span></div>
                       <div><strong>{money.format(branch.cost)}</strong><span>est. cost</span></div>
+                      <div><strong>{branch.transitHours ?? branch.driveHours}h</strong><span>total transit</span></div>
                       <div><strong>{branch.driveHours}h</strong><span>driving</span></div>
                       <div><strong>{branch.fatigue}/10</strong><span>fatigue</span><i className="meter"><i style={{ width: `${branch.fatigue * 10}%` }} /></i></div>
+                      <div><strong>{branch.luggageFlexibility || branch.flexibility}</strong><span>luggage freedom</span></div>
+                    </div>
+                    <div className="transport-tradeoffs">
+                      <span>Booking complexity: <b>{branch.bookingComplexity || "Medium"}</b></span>
+                      <span>Route flexibility: <b>{branch.flexibility}</b></span>
                     </div>
                     <div className="score-row"><span>Experience score</span><strong>{branch.experienceScore}/10</strong><div className="score-dots">{Array.from({ length: 10 }, (_, dot) => <i className={dot < branch.experienceScore ? "filled" : ""} key={dot} />)}</div></div>
                     <div className="change-block"><span>What changes</span><ul>{branch.changes.map((change) => <li key={change}>{change}</li>)}</ul></div>
@@ -377,13 +441,30 @@ export function TripForkApp() {
                 <label><span>Dates / length</span><input value={tripInput.dates} onChange={(e) => setTripInput({ ...tripInput, dates: e.target.value })} placeholder="Feb 16–23 · 7 days" /></label>
                 <label><span>Travelers</span><input value={tripInput.travelers} onChange={(e) => setTripInput({ ...tripInput, travelers: e.target.value })} /></label>
                 <label><span>Budget</span><input value={tripInput.budget} onChange={(e) => setTripInput({ ...tripInput, budget: e.target.value })} placeholder="$4,000 total" /></label>
+                <label><span>Starting from</span><input value={tripInput.origin} onChange={(e) => setTripInput({ ...tripInput, origin: e.target.value })} placeholder="San Francisco Bay Area" /></label>
                 <label><span>Decision date</span><input value={tripInput.decisionDate} onChange={(e) => setTripInput({ ...tripInput, decisionDate: e.target.value })} placeholder="Lottery result Jul 18" /></label>
               </div>
-              <label><span>Current route / rough notes *</span><textarea required minLength={20} rows={5} value={tripInput.notes} onChange={(e) => setTripInput({ ...tripInput, notes: e.target.value })} placeholder="Paste your current day-by-day plan, links, or the version you keep changing…" /></label>
+              <label><span>Your existing plan / baseline *</span><textarea required minLength={20} rows={5} value={tripInput.notes} onChange={(e) => setTripInput({ ...tripInput, notes: e.target.value })} placeholder="Paste the itinerary you already have: Day 1 SF → Vegas; Day 2 Zion → Bryce… TripFork will preserve it as the baseline." /></label>
+              <label><span>Places and input points</span><textarea rows={3} value={tripInput.places} onChange={(e) => setTripInput({ ...tripInput, places: e.target.value })} placeholder="Zion, Bryce, Page, The Wave lottery, Antelope Canyon at 1:15 PM, Monument Valley…" /></label>
+              <fieldset className="transport-picker">
+                <legend>Which transport options should we compare?</legend>
+                <p>Select at least one. Pick two or three for a real side-by-side transport comparison.</p>
+                <div>
+                  {transportChoices.map((mode) => (
+                    <label className={tripInput.transportModes.includes(mode) ? "selected" : ""} key={mode}>
+                      <input type="checkbox" checked={tripInput.transportModes.includes(mode)} onChange={() => toggleTransport(mode)} />
+                      <span>{mode}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <div className="form-grid">
                 <label><span>Must-haves</span><textarea rows={3} value={tripInput.mustHaves} onChange={(e) => setTripInput({ ...tripInput, mustHaves: e.target.value })} placeholder="Manta ray night dive, volcano, no difficult swimming" /></label>
                 <label><span>Fixed bookings</span><textarea rows={3} value={tripInput.fixedBookings} onChange={(e) => setTripInput({ ...tripInput, fixedBookings: e.target.value })} placeholder="Flights, nonrefundable hotels, tour times" /></label>
-                <label><span>What is uncertain? *</span><textarea required rows={3} value={tripInput.uncertainty} onChange={(e) => setTripInput({ ...tripInput, uncertainty: e.target.value })} placeholder="The Wave lottery; volcano activity; summit weather" /></label>
+                <label><span>Must keep exactly</span><textarea rows={3} value={tripInput.lockedItems} onChange={(e) => setTripInput({ ...tripInput, lockedItems: e.target.value })} placeholder="Flight home Sunday; Antelope tour Friday 1:15 PM" /></label>
+                <label><span>Can move to another day</span><textarea rows={3} value={tripInput.movableItems} onChange={(e) => setTripInput({ ...tripInput, movableItems: e.target.value })} placeholder="Mauna Kea, Grand Canyon sunrise, Page hotel" /></label>
+                <label><span>Nice-to-have / can skip</span><textarea rows={3} value={tripInput.optionalItems} onChange={(e) => setTripInput({ ...tripInput, optionalItems: e.target.value })} placeholder="Lake Powell, market, scenic detour" /></label>
+                <label><span>What else is uncertain?</span><textarea rows={3} value={tripInput.uncertainty} onChange={(e) => setTripInput({ ...tripInput, uncertainty: e.target.value })} placeholder="Optional: The Wave lottery; volcano activity; summit weather" /></label>
                 <label><span>Constraints</span><textarea rows={3} value={tripInput.constraints} onChange={(e) => setTripInput({ ...tripInput, constraints: e.target.value })} placeholder="Max driving, mobility, budget, workdays" /></label>
               </div>
               <div className="composer-footer"><small>TripFork does not invent live prices, weather, permits, or availability. Verify those before booking.</small><button className="button button-dark" disabled={isGenerating}>{isGenerating ? "Building complete branches…" : "Build my comparison →"}</button></div>

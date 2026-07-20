@@ -356,6 +356,73 @@ a {
   padding: 11px 14px;
 }
 
+.input-receipt {
+  background: rgba(255, 253, 248, 0.72);
+  border: 1px solid #d9d6ce;
+  border-radius: 14px;
+  margin: 0 auto 18px;
+  max-width: 1500px;
+  overflow: hidden;
+}
+
+.input-receipt summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  list-style: none;
+  padding: 15px 18px;
+}
+
+.input-receipt summary::-webkit-details-marker {
+  display: none;
+}
+
+.input-receipt summary > span {
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.input-receipt summary > b {
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.input-receipt-grid {
+  border-top: 1px solid #e2dfd7;
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.input-receipt-grid > div {
+  background: white;
+  min-width: 0;
+  padding: 15px 18px;
+}
+
+.input-receipt-grid span {
+  color: #8a908c;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.input-receipt-grid p {
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 7px 0 0;
+  white-space: pre-line;
+}
+
+.input-receipt-grid .baseline-plan {
+  grid-column: span 2;
+}
+
 .trip-heading {
   align-items: end;
   display: flex;
@@ -671,13 +738,36 @@ a {
   margin: -15px 0 20px;
 }
 
+.transport-label {
+  background: color-mix(in srgb, var(--accent) 10%, white);
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, white);
+  border-radius: 999px;
+  color: var(--accent);
+  display: inline-flex;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  margin: -14px 0 24px;
+  padding: 6px 9px;
+  text-transform: uppercase;
+}
+
 .metrics {
   border-bottom: 1px solid #e5e2da;
   border-top: 1px solid #e5e2da;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 0 -28px;
   padding: 18px 22px;
+}
+
+.metrics > div:nth-child(3) {
+  border-right: 0;
+}
+
+.metrics > div:nth-child(n + 4) {
+  border-top: 1px solid #e5e2da;
+  padding-top: 14px;
 }
 
 .metrics > div {
@@ -728,6 +818,25 @@ a {
   display: grid;
   grid-template-columns: 1fr auto;
   padding: 22px 0 18px;
+}
+
+.transport-tradeoffs {
+  color: #7a817d;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 9px;
+  gap: 7px;
+  margin: 16px 0;
+}
+
+.transport-tradeoffs > span {
+  background: #f0ede6;
+  border-radius: 999px;
+  padding: 6px 8px;
+}
+
+.transport-tradeoffs b {
+  color: var(--ink);
 }
 
 .score-row > span {
@@ -1146,6 +1255,63 @@ footer > span {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.transport-picker {
+  border: 1px solid #d7d3ca;
+  border-radius: 13px;
+  margin: 0;
+  padding: 15px;
+}
+
+.transport-picker legend {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 0 5px;
+}
+
+.transport-picker > p {
+  color: #8b908d;
+  font-size: 9px;
+  margin: 0 0 12px;
+}
+
+.transport-picker > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.transport-picker label {
+  align-items: center;
+  background: white;
+  border: 1px solid #d7d3ca;
+  border-radius: 999px;
+  cursor: pointer;
+  display: flex;
+  gap: 7px;
+  padding: 8px 11px;
+}
+
+.transport-picker label.selected {
+  background: var(--green);
+  border-color: var(--green);
+  color: white;
+}
+
+.transport-picker input {
+  accent-color: var(--orange);
+  height: auto;
+  margin: 0;
+  width: auto;
+}
+
+.transport-picker label > span {
+  color: inherit;
+  font-size: 9px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .trip-form input,
 .trip-form textarea {
   background: white;
@@ -1360,6 +1526,23 @@ footer > span {
     flex-wrap: wrap;
   }
 
+  .input-receipt summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .input-receipt summary > b {
+    text-align: left;
+  }
+
+  .input-receipt-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .input-receipt-grid .baseline-plan {
+    grid-column: auto;
+  }
+
   .trip-heading {
     align-items: flex-start;
     flex-direction: column;
@@ -1409,6 +1592,14 @@ footer > span {
     margin-left: -22px;
     margin-right: -22px;
     row-gap: 18px;
+  }
+
+  .metrics > div:nth-child(3) {
+    border-right: 1px solid #e5e2da;
+  }
+
+  .metrics > div:nth-child(2n) {
+    border-right: 0;
   }
 
   .metrics > div:nth-child(2) {

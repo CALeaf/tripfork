@@ -17,7 +17,11 @@ const Branch = z.object({
   subtitle: z.string(),
   days: z.number(),
   cost: z.number(),
+  transportMode: z.string(),
+  transitHours: z.number(),
   driveHours: z.number(),
+  luggageFlexibility: z.enum(["Low", "Medium", "High"]),
+  bookingComplexity: z.enum(["Low", "Medium", "High"]),
   fatigue: z.number().min(1).max(10),
   experienceScore: z.number().min(1).max(10),
   flexibility: z.enum(["Low", "Medium", "High"]),
@@ -66,20 +70,35 @@ function normalizeInput(value: unknown): TripInput | null {
   if (!value || typeof value !== "object") return null;
   const input = value as Record<string, unknown>;
   const read = (key: string) => (typeof input[key] === "string" ? input[key].trim() : "");
+  const readArray = (key: string) =>
+    Array.isArray(input[key])
+      ? input[key].filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean).slice(0, 5)
+      : [];
+  const transportModes = readArray("transportModes");
+  const uncertainty = read("uncertainty") ||
+    (transportModes.length > 1
+      ? `Choose between ${transportModes.join(" and ")}`
+      : "Final route choice");
   const normalized = {
     title: read("title"),
     destination: read("destination"),
     dates: read("dates"),
     travelers: read("travelers"),
     budget: read("budget"),
+    origin: read("origin"),
     notes: read("notes"),
+    places: read("places"),
     mustHaves: read("mustHaves"),
     fixedBookings: read("fixedBookings"),
-    uncertainty: read("uncertainty"),
+    lockedItems: read("lockedItems"),
+    movableItems: read("movableItems"),
+    optionalItems: read("optionalItems"),
+    transportModes: transportModes.length ? transportModes : ["Drive my car", "Fly + rental car"],
+    uncertainty,
     decisionDate: read("decisionDate"),
     constraints: read("constraints"),
   };
-  if (normalized.destination.length < 2 || normalized.notes.length < 20 || normalized.uncertainty.length < 3) {
+  if (normalized.destination.length < 2 || normalized.notes.length < 20) {
     return null;
   }
   return normalized;
@@ -130,7 +149,11 @@ function demoTrip(input: TripInput): z.infer<typeof GeneratedTrip> {
           subtitle: "Move the summit night, not the whole route",
           days: 7,
           cost: 3950,
+          transportMode: "Fly + rental car",
+          transitHours: 18,
           driveHours: 18,
+          luggageFlexibility: "Medium",
+          bookingComplexity: "Medium",
           fatigue: 7,
           experienceScore: 9,
           flexibility: "High",
@@ -149,7 +172,11 @@ function demoTrip(input: TripInput): z.infer<typeof GeneratedTrip> {
           subtitle: "Protect the rare live event",
           days: 7,
           cost: 4100,
+          transportMode: "Fly + rental car",
+          transitHours: 21,
           driveHours: 21,
+          luggageFlexibility: "Medium",
+          bookingComplexity: "High",
           fatigue: 8,
           experienceScore: 10,
           flexibility: "Medium",
@@ -168,7 +195,11 @@ function demoTrip(input: TripInput): z.infer<typeof GeneratedTrip> {
           subtitle: "Lower fatigue when conditions disappoint",
           days: 7,
           cost: 3700,
+          transportMode: "Fly + rental car",
+          transitHours: 15,
           driveHours: 15,
+          luggageFlexibility: "Medium",
+          bookingComplexity: "Low",
           fatigue: 5,
           experienceScore: 8,
           flexibility: "Medium",
@@ -190,6 +221,57 @@ function demoTrip(input: TripInput): z.infer<typeof GeneratedTrip> {
     };
   }
 
+  const transportProfiles = input.transportModes.slice(0, 3).map((mode, index) => {
+    const normalizedMode = mode.toLowerCase();
+    const isDrive = normalizedMode.includes("drive");
+    const isRental = normalizedMode.includes("rental");
+    const isTransit = normalizedMode.includes("transit");
+    const isTrain = normalizedMode.includes("train");
+    return {
+      id: `transport-${index + 1}`,
+      name: mode,
+      subtitle: isDrive
+        ? "Maximum route and luggage freedom"
+        : isRental
+          ? "Recover long-haul time without losing the road trip"
+          : isTransit
+            ? "No driving, with more schedule constraints"
+            : isTrain
+              ? "A slower transfer that can double as rest time"
+              : "TripFork’s balanced transport mix",
+      days: 6,
+      cost: isDrive ? 1800 : isRental ? 2500 : isTransit ? 2200 : isTrain ? 2000 : 2300,
+      transportMode: mode,
+      transitHours: isDrive ? 28 : isRental ? 18 : isTransit ? 20 : isTrain ? 32 : 20,
+      driveHours: isDrive ? 28 : isRental ? 12 : isTransit ? 0 : isTrain ? 4 : 14,
+      luggageFlexibility: (isDrive ? "High" : isRental ? "Medium" : "Low") as "Low" | "Medium" | "High",
+      bookingComplexity: (isDrive ? "Low" : isRental ? "High" : "Medium") as "Low" | "Medium" | "High",
+      fatigue: isDrive ? 8 : isRental ? 6 : isTransit ? 5 : isTrain ? 5 : 6,
+      experienceScore: isDrive ? 8 : isRental ? 9 : isTransit ? 7 : isTrain ? 7 : 9,
+      flexibility: (isDrive ? "High" : isRental ? "Medium" : "Low") as "Low" | "Medium" | "High",
+      summary: isDrive
+        ? "Keeps the existing plan closest to its current shape and makes spontaneous stops easiest."
+        : isRental
+          ? "Uses flights for the longest transfer, then keeps a car for the destination loop."
+          : "Removes most driving, but the route must follow timetables and transfer points.",
+      changes: isDrive
+        ? ["Keep the baseline route", "Carry luggage without airline limits"]
+        : isRental
+          ? ["Replace the longest drive with a flight", "Pick up a rental car at the destination"]
+          : ["Cluster places around transit hubs", "Move or drop stops that require a car"],
+      tradeoffs: isDrive
+        ? ["Long driving days", "Fuel and parking", "Driver fatigue"]
+        : isRental
+          ? ["Flights and rental cost", "Airport and pickup time", "More bookings"]
+          : ["Spontaneous detours", "Luggage freedom", "Remote stops"],
+      timeline: [
+        { day: "Baseline", title: input.notes.slice(0, 72), detail: `Reworked around ${mode}` },
+        { day: "Key stops", title: input.places || input.destination, detail: "Locked items stay; movable and optional items absorb the tradeoffs" },
+      ],
+    };
+  });
+  const firstBranch = transportProfiles[0];
+  const secondBranch = transportProfiles[1] ?? firstBranch;
   return {
     title: input.title || `${input.destination}: compare the forks`,
     destination: input.destination,
@@ -198,78 +280,34 @@ function demoTrip(input: TripInput): z.infer<typeof GeneratedTrip> {
     budget: input.budget || "Budget not set",
     decision: {
       name: input.uncertainty,
-      question: `What should change when “${input.uncertainty}” is resolved?`,
+      question: input.transportModes.length > 1
+        ? `Which transport tradeoff works better: ${input.transportModes.join(" vs ")}?`
+        : `What should change when “${input.uncertainty}” is resolved?`,
       decisionDate: input.decisionDate || "Decision date not set",
-      positiveLabel: "Happens",
-      negativeLabel: "Doesn’t happen",
+      positiveLabel: firstBranch.name,
+      negativeLabel: secondBranch.name,
     },
     recommendations: {
       pending: {
-        branchId: "balanced",
-        title: "Protect optionality until the uncertainty resolves.",
-        rationale: "Keep fixed bookings and add only the smallest refundable buffer needed to preserve both outcomes.",
-        actions: ["Check cancellation deadlines", "Hold one refundable option"],
+        branchId: secondBranch.id,
+        title: `Compare ${firstBranch.name} with ${secondBranch.name} before booking.`,
+        rationale: "Use door-to-door time and full trip cost—not only ticket price or driving time—to make the transport choice.",
+        actions: ["Check door-to-door travel time", "Price fuel, parking, flights, and rental together"],
       },
       positive: {
-        branchId: "must-have",
-        title: "Activate the must-have branch.",
-        rationale: "Trade an optional stop for the uncertain experience while keeping the fixed commitments intact.",
-        actions: ["Confirm the uncertain event", "Move the optional stop", "Cancel the unused hold"],
+        branchId: firstBranch.id,
+        title: `Use ${firstBranch.name}.`,
+        rationale: "This branch preserves the supplied baseline and locked items while making its transport tradeoffs explicit.",
+        actions: ["Verify the full transport cost", "Confirm the locked bookings", "Release the unused alternative"],
       },
       negative: {
-        branchId: "original",
-        title: "Return to the efficient base plan.",
-        rationale: "There is no longer a reason to pay for flexibility, so keep the lowest-change itinerary.",
-        actions: ["Release the flexible hold", "Confirm fixed bookings"],
+        branchId: secondBranch.id,
+        title: `Use ${secondBranch.name}.`,
+        rationale: "This branch buys back travel time or fatigue while showing exactly what changes from the existing plan.",
+        actions: ["Book the long-haul transport", "Confirm local mobility", "Release the unused alternative"],
       },
     },
-    branches: [
-      {
-        id: "original",
-        name: "Keep the original",
-        subtitle: "Fewest changes and lowest cost",
-        days: 6,
-        cost: 1800,
-        driveHours: 28,
-        fatigue: 8,
-        experienceScore: 7,
-        flexibility: "Low",
-        summary: "Preserves the current route and reservations.",
-        changes: ["No booking changes"],
-        tradeoffs: ["The uncertain must-have", "Recovery time"],
-        timeline: [{ day: "Trip", title: "Original route", detail: "All fixed reservations remain" }],
-      },
-      {
-        id: "balanced",
-        name: "Protect optionality",
-        subtitle: "Best while the outcome is pending",
-        days: 7,
-        cost: 2200,
-        driveHours: 24,
-        fatigue: 6,
-        experienceScore: 9,
-        flexibility: "High",
-        summary: "Adds a refundable buffer that can absorb the uncertain event.",
-        changes: ["Add one flexible night", "Move one optional stop"],
-        tradeoffs: ["One more day", "Moderately higher cost"],
-        timeline: [{ day: "Trip", title: "Flexible route", detail: "One day remains movable" }],
-      },
-      {
-        id: "must-have",
-        name: "Make the must-have fit",
-        subtitle: "Spend more to recover time",
-        days: 6,
-        cost: 2500,
-        driveHours: 16,
-        fatigue: 7,
-        experienceScore: 9,
-        flexibility: "Medium",
-        summary: "Replaces the longest transfer and preserves the must-have.",
-        changes: ["Replace the longest transfer", "Drop one optional stop"],
-        tradeoffs: ["Higher transport cost", "Less spontaneous time"],
-        timeline: [{ day: "Trip", title: "Compressed route", detail: "Transit is exchanged for experience time" }],
-      },
-    ],
+    branches: transportProfiles,
     checklist: [
       { label: "Check every free-cancellation deadline", dueDate: "Today", kind: "check" },
       { label: "Hold the refundable option", dueDate: input.decisionDate || "Before cutoff", kind: "book" },
@@ -282,9 +320,18 @@ function toDocument(generated: z.infer<typeof GeneratedTrip>, input: TripInput):
   return {
     ...generated,
     id: crypto.randomUUID(),
-    sourceNotes: [input.notes, input.mustHaves, input.fixedBookings, input.constraints]
+    sourceNotes: [input.notes, input.places, input.mustHaves, input.fixedBookings, input.lockedItems, input.movableItems, input.optionalItems, input.constraints]
       .filter(Boolean)
       .join("\n\n"),
+    inputSummary: {
+      origin: input.origin,
+      existingPlan: input.notes,
+      places: input.places,
+      lockedItems: [input.fixedBookings, input.lockedItems].filter(Boolean).join("; "),
+      movableItems: input.movableItems,
+      optionalItems: input.optionalItems,
+      transportModes: input.transportModes,
+    },
     decision: { ...generated.decision, status: "pending" },
     checklist: generated.checklist.map((item) => ({
       ...item,
@@ -300,7 +347,7 @@ export async function POST(request: Request) {
   const input = normalizeInput(body?.trip);
   if (!input) {
     return Response.json(
-      { error: "Add a destination, a rough itinerary, and the uncertainty you need to plan around." },
+      { error: "Add a destination and the itinerary you already have. Choose transport modes or add an uncertainty to compare." },
       { status: 400 },
     );
   }
@@ -319,7 +366,7 @@ export async function POST(request: Request) {
         {
           role: "system",
           content:
-            "You are TripFork, an uncertainty-aware travel decision engine. Build 2–3 complete, meaningfully different branches. Preserve fixed commitments. Separate must-haves, optional stops, constraints, and uncertain events. Compare real tradeoffs; never pretend every goal fits. Use the user's currency when known. Costs are clearly reasonable estimates when exact prices are absent. Every pending/positive/negative recommendation must reference a branch id that exists. Produce concrete actions and cancellation checks, not generic travel advice.",
+            "You are TripFork, a travel comparison engine. Treat the user's existing plan as the baseline, not disposable notes. Never move locked items. Move only movable items and drop only optional items. When 2–3 transport modes are requested, create a distinct complete branch for each one. Compare door-to-door transit time, driving time, full-trip cost (fuel, parking, flights, rental, local transit), fatigue, luggage freedom, booking complexity, route flexibility, and which supplied places no longer fit. Never claim live prices or availability; costs are labeled estimates. Preserve must-haves where feasible and state honest tradeoffs when they cannot all fit. Every pending/positive/negative recommendation must reference an existing branch id. Produce concrete next actions, not generic travel advice.",
         },
         {
           role: "user",

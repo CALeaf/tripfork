@@ -13,6 +13,10 @@ export type TripBranch = {
   days: number;
   cost: number;
   driveHours: number;
+  transportMode?: string;
+  transitHours?: number;
+  luggageFlexibility?: "Low" | "Medium" | "High";
+  bookingComplexity?: "Low" | "Medium" | "High";
   fatigue: number;
   experienceScore: number;
   flexibility: "Low" | "Medium" | "High";
@@ -45,6 +49,15 @@ export type TripDocument = {
   travelers: string;
   budget: string;
   sourceNotes: string;
+  inputSummary?: {
+    origin: string;
+    existingPlan: string;
+    places: string;
+    lockedItems: string;
+    movableItems: string;
+    optionalItems: string;
+    transportModes: string[];
+  };
   decision: {
     name: string;
     question: string;
@@ -66,9 +79,15 @@ export type TripInput = {
   dates: string;
   travelers: string;
   budget: string;
+  origin: string;
   notes: string;
+  places: string;
   mustHaves: string;
   fixedBookings: string;
+  lockedItems: string;
+  movableItems: string;
+  optionalItems: string;
+  transportModes: string[];
   uncertainty: string;
   decisionDate: string;
   constraints: string;

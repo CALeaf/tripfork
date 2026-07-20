@@ -31,13 +31,18 @@ Users can:
 
 - enter destination, dates, budget, current route, must-haves, fixed bookings,
   constraints, and the uncertain event separately;
+- paste an existing itinerary as the baseline, then separate supplied places
+  into must-keep, movable, and optional inputs;
+- request explicit transport forks such as **drive my car**, **fly + rental
+  car**, **fly + public transit**, or **train**;
 - turn that input into a complete comparison that replaces the sample in the
   main workspace;
 - compare two or three complete itinerary branches side by side;
 - switch an uncertain event between pending, positive, and negative outcomes;
 - see the recommended branch change without rebuilding the trip;
 - compare days, estimated cost, driving, fatigue, experience coverage, route
-  changes, and explicit tradeoffs;
+  changes, total door-to-door transit time, luggage freedom, booking
+  complexity, and explicit tradeoffs;
 - choose a final branch and complete a concrete action checklist;
 - save, reopen, update, and delete trips through Cloudflare D1;
 - export the active comparison and decisions as editable Markdown;

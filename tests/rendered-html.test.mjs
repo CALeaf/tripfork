@@ -43,6 +43,11 @@ test("server-renders the TripFork decision workspace", async () => {
   assert.match(html, /Overall fit/);
   assert.match(html, /Hawaii weather change/);
   assert.match(html, /Edit inputs/);
+  assert.match(html, /Borrow an itinerary/);
+  assert.match(html, /Southwest Grand Circle/);
+  assert.match(html, /California Highway 1/);
+  assert.match(html, /Use this itinerary/);
+  assert.match(html, /Route at a glance/);
   assert.match(html, /Fork a new trip/);
   assert.match(html, />中文</);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
@@ -124,4 +129,26 @@ test("builds transport branches from an existing itinerary", async () => {
   assert.equal(payload.trip.inputSummary.lockedItems.includes("Sunday night"), true);
   assert.equal(payload.trip.originalInput.destination, "Utah and Arizona");
   assert.deepEqual(payload.trip.originalInput.transportModes, ["Drive my car", "Fly + rental car"]);
+  assert.equal(payload.trip.branches.every((branch) => branch.routePoints.length >= 6), true);
+  assert.equal(payload.trip.branches[0].routePoints.some((point) => point.label === "Grand Canyon"), true);
+});
+
+test("adds a distinct mapped route to a Highway 1 comparison", async () => {
+  const response = await request("/api/compare", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      trip: {
+        destination: "California coast",
+        notes: "Start in San Francisco and follow Highway 1 through Monterey, Big Sur and Santa Barbara to Los Angeles.",
+        places: "Monterey, Big Sur, Santa Barbara, Los Angeles",
+        transportModes: ["Drive my car", "Fly + rental car"],
+      },
+    }),
+  });
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.trip.branches[0].routePoints[0].label, "San Francisco");
+  assert.equal(payload.trip.branches[0].routePoints.at(-1).label, "San Francisco");
+  assert.equal(payload.trip.branches[1].routePoints.at(-1).label, "Los Angeles");
 });

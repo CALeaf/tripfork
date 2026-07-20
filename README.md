@@ -31,6 +31,8 @@ route changed repeatedly around **The Wave** permit lottery.
 
 Users can:
 
+- start from a curated Southwest, Hawaii Big Island, or California Highway 1
+  itinerary instead of a blank form, then customize every input;
 - enter destination, dates, budget, current route, must-haves, fixed bookings,
   constraints, and the uncertain event separately;
 - paste an existing itinerary as the baseline, then separate supplied places
@@ -42,6 +44,8 @@ Users can:
 - reopen and edit the original inputs, then rebuild the comparison without
   creating a duplicate saved trip;
 - compare two or three complete itinerary branches side by side;
+- see each recognizable branch on an interactive OpenStreetMap route with
+  numbered stops and a planning-only disclaimer;
 - switch an uncertain event between pending, positive, and negative outcomes;
 - see the recommended branch change without rebuilding the trip;
 - compare days, estimated cost, driving, fatigue, experience coverage, route
@@ -102,6 +106,7 @@ npm run lint
 - Zod-backed Structured Outputs
 - Cloudflare D1 persistence with Drizzle-managed schema migrations
 - Cloudflare Worker-compatible build
+- Leaflet route visualization with OpenStreetMap tiles
 
 ## Product direction
 

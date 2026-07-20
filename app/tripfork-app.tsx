@@ -4,6 +4,9 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { branchAccents, type DecisionStatus, type TripDocument, type TripInput } from "@/lib/trip-types";
 import { sampleHawaiiTrip, sampleHawaiiTripZh, sampleTrip, sampleTripZh } from "@/lib/sample-trip";
 import { localeNames, transportCopy, translateComplexity, translateKind, translateLevel, uiCopy, type Locale } from "@/lib/i18n";
+import { tripGuides, type TripGuide } from "@/lib/trip-guides";
+import { inferRoutePoints } from "@/lib/route-points";
+import { RouteMap } from "@/app/route-map";
 
 function createEmptyInput(locale: Locale): TripInput {
   return {
@@ -399,6 +402,14 @@ export function TripForkApp() {
     setComposerOpen(true);
   }
 
+  function applyGuide(guide: TripGuide) {
+    setEditingInputs(false);
+    setEditingTripId(null);
+    setTripInput({ ...guide.input[locale], transportModes: [...guide.input[locale].transportModes] });
+    setNotice(copy.guideLoaded);
+    setComposerOpen(true);
+  }
+
   function editInputs() {
     setEditingInputs(true);
     setEditingTripId(activeIsSample ? null : activeTrip.id);
@@ -560,6 +571,29 @@ export function TripForkApp() {
           <span>{copy.currentFork}</span>
           <strong>{activeTrip.decision.name}</strong>
           <div className="decision-date"><b>{activeTrip.branches.length}</b><span>{copy.completeOptions.split("\n").map((line, index) => <span key={line}>{index ? <br /> : null}{line}</span>)}</span></div>
+        </div>
+      </section>
+
+      <section className="guide-library" aria-labelledby="guide-library-title">
+        <div className="guide-library-heading">
+          <div><span className="eyebrow">{copy.guidesEyebrow}</span><h2 id="guide-library-title">{copy.guidesTitle}</h2></div>
+          <p>{copy.guidesBody}</p>
+        </div>
+        <div className="guide-grid">
+          {tripGuides.map((guide) => (
+            <article className={`guide-card guide-${guide.tone}`} key={guide.id}>
+              <div className="guide-art" aria-hidden="true"><i /><i /><i /><span>{guide.duration[locale]}</span></div>
+              <div className="guide-card-body">
+                <span className="guide-kicker">{guide.kicker[locale]}</span>
+                <h3>{guide.title[locale]}</h3>
+                <p>{guide.summary[locale]}</p>
+                <div className="guide-route">{guide.route[locale]}</div>
+                <div className="guide-best"><span>{copy.guideBestFor}</span><strong>{guide.bestFor[locale]}</strong></div>
+                <ul>{guide.highlights[locale].map((highlight) => <li key={highlight}>✓ {highlight}</li>)}</ul>
+                <button type="button" onClick={() => applyGuide(guide)}>{copy.useGuide}</button>
+              </div>
+            </article>
+          ))}
         </div>
       </section>
 
@@ -740,6 +774,12 @@ export function TripForkApp() {
                 const index = activeTrip.branches.findIndex((item) => item.id === branch.id);
                 const isRecommended = branch.id === displayRecommendation.branchId;
                 const isCommitted = branch.id === activeTrip.committedBranchId;
+                const routePoints = branch.routePoints ?? inferRoutePoints(
+                  `${activeTrip.destination} ${activeTrip.sourceNotes} ${activeTrip.inputSummary?.places ?? ""}`,
+                  branch.transportMode,
+                  branch.id,
+                  locale,
+                );
                 return (
                   <article className={`branch-card ${isRecommended ? "recommended" : ""}`} id={`branch-${branch.id}`} key={branch.id} style={{ "--accent": branchAccents[index] } as React.CSSProperties}>
                     <div className="branch-topline"><span>{copy.plan.toUpperCase()} {String.fromCharCode(65 + index)}</span><div>{isRecommended && <b>{copy.recommended}</b>}{isCommitted && <b className="chosen-badge">{copy.chosen}</b>}</div></div>
@@ -747,6 +787,9 @@ export function TripForkApp() {
                     <p className="branch-subtitle">{branch.subtitle}</p>
                     <div className="transport-label">{branch.transportMode || copy.mixedTransport}</div>
                     <p className="branch-summary">{branch.summary}</p>
+                    {routePoints && routePoints.length > 1 && (
+                      <RouteMap points={routePoints} accent={branchAccents[index]} title={copy.routeMap} disclaimer={copy.mapPlanningOnly} />
+                    )}
                     <div className="metrics">
                       <div><strong>{branch.days}</strong><span>{copy.days}</span></div>
                       <div><strong>{formatMoney(branch.cost, locale)}</strong><span>{copy.estCost}</span></div>

@@ -3,6 +3,7 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import type { TripDocument, TripInput } from "@/lib/trip-types";
 import type { Locale } from "@/lib/i18n";
+import { inferRoutePoints } from "@/lib/route-points";
 
 export const runtime = "edge";
 
@@ -31,6 +32,11 @@ const Branch = z.object({
   changes: z.array(z.string()),
   tradeoffs: z.array(z.string()),
   timeline: z.array(TimelineDay),
+  routePoints: z.array(z.object({
+    label: z.string(),
+    lat: z.number(),
+    lng: z.number(),
+  })).max(12).optional(),
 });
 
 const Recommendation = z.object({
@@ -423,6 +429,7 @@ function demoTripZh(input: TripInput): z.infer<typeof GeneratedTrip> {
 }
 
 function toDocument(generated: z.infer<typeof GeneratedTrip>, input: TripInput): TripDocument {
+  const locale = /[\u3400-\u9fff]/.test(generated.title) ? "zh" : "en";
   return {
     ...generated,
     id: crypto.randomUUID(),
@@ -443,6 +450,12 @@ function toDocument(generated: z.infer<typeof GeneratedTrip>, input: TripInput):
       transportModes: input.transportModes,
     },
     decision: { ...generated.decision, status: "pending" },
+    branches: generated.branches.map((branch) => ({
+      ...branch,
+      routePoints: branch.routePoints?.length
+        ? branch.routePoints
+        : inferRoutePoints(`${input.destination} ${input.places} ${input.notes}`, branch.transportMode, branch.id, locale),
+    })),
     checklist: generated.checklist.map((item) => ({
       ...item,
       id: crypto.randomUUID(),
@@ -477,7 +490,7 @@ export async function POST(request: Request) {
         {
           role: "system",
           content:
-            `You are TripFork, a travel comparison engine. Treat the user's existing plan as the baseline, not disposable notes. Never move locked items. Move only movable items and drop only optional items. When 2–3 transport modes are requested, create a distinct complete branch for each one. Compare door-to-door transit time, driving time, full-trip cost (fuel, parking, flights, rental, local transit), fatigue, luggage freedom, booking complexity, route flexibility, and which supplied places no longer fit. Never claim live prices or availability; costs are labeled estimates. Preserve must-haves where feasible and state honest tradeoffs when they cannot all fit. Every pending/positive/negative recommendation must reference an existing branch id. When a branch only works for certain decision outcomes, list those values in outcomes; use pending for branches that can be held while waiting. Produce concrete next actions, not generic travel advice. Return every user-facing string in ${locale === "zh" ? "natural, concise Simplified Chinese written for Chinese independent travelers. Do not translate English product jargon literally; prefer everyday phrases such as 路上总共要多久, 行程有多赶, 已经订好的, and 哪些地方可以不去" : "English"}.`,
+            `You are TripFork, a travel comparison engine. Treat the user's existing plan as the baseline, not disposable notes. Never move locked items. Move only movable items and drop only optional items. When 2–3 transport modes are requested, create a distinct complete branch for each one. Compare door-to-door transit time, driving time, full-trip cost (fuel, parking, flights, rental, local transit), fatigue, luggage freedom, booking complexity, route flexibility, and which supplied places no longer fit. Never claim live prices or availability; costs are labeled estimates. Preserve must-haves where feasible and state honest tradeoffs when they cannot all fit. Every pending/positive/negative recommendation must reference an existing branch id. When a branch only works for certain decision outcomes, list those values in outcomes; use pending for branches that can be held while waiting. Add 2–12 approximate routePoints for recognizable geographic stops in each branch; omit routePoints rather than inventing coordinates when unsure. Route points are for visual planning, not turn-by-turn navigation. Produce concrete next actions, not generic travel advice. Return every user-facing string in ${locale === "zh" ? "natural, concise Simplified Chinese written for Chinese independent travelers. Do not translate English product jargon literally; prefer everyday phrases such as 路上总共要多久, 行程有多赶, 已经订好的, and 哪些地方可以不去" : "English"}.`,
         },
         {
           role: "user",

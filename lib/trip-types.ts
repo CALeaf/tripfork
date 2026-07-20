@@ -6,6 +6,12 @@ export type TimelineDay = {
   detail: string;
 };
 
+export type RoutePoint = {
+  label: string;
+  lat: number;
+  lng: number;
+};
+
 export type TripBranch = {
   id: string;
   name: string;
@@ -25,6 +31,7 @@ export type TripBranch = {
   changes: string[];
   tradeoffs: string[];
   timeline: TimelineDay[];
+  routePoints?: RoutePoint[];
 };
 
 export type Recommendation = {

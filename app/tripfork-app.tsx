@@ -38,6 +38,14 @@ const money = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
 });
 
+const levelScore = { Low: 1, Medium: 2, High: 3 } as const;
+
+function paceLabel(fatigue: number) {
+  if (fatigue <= 4) return "Relaxed";
+  if (fatigue <= 7) return "Moderate";
+  return "Tight";
+}
+
 function getOwnerId() {
   const key = "tripfork_owner_id";
   const existing = window.localStorage.getItem(key);
@@ -111,6 +119,75 @@ export function TripForkApp() {
   const comparedBranches = useMemo(
     () => activeTrip.branches.filter((branch) => selected.includes(branch.id)),
     [activeTrip, selected],
+  );
+  const comparisonRows = useMemo(
+    () => [
+      {
+        label: "Estimated cost",
+        hint: "Lower is better",
+        direction: "lower" as const,
+        score: (branch: TripDocument["branches"][number]) => branch.cost,
+        display: (branch: TripDocument["branches"][number]) => money.format(branch.cost),
+      },
+      {
+        label: "Trip pace",
+        hint: "Lower intensity is easier",
+        direction: "lower" as const,
+        score: (branch: TripDocument["branches"][number]) => branch.fatigue,
+        display: (branch: TripDocument["branches"][number]) => `${paceLabel(branch.fatigue)} · ${branch.fatigue}/10`,
+      },
+      {
+        label: "Days required",
+        hint: "Fewer days used",
+        direction: "lower" as const,
+        score: (branch: TripDocument["branches"][number]) => branch.days,
+        display: (branch: TripDocument["branches"][number]) => `${branch.days} days`,
+      },
+      {
+        label: "Door-to-door transit",
+        hint: "Total movement time",
+        direction: "lower" as const,
+        score: (branch: TripDocument["branches"][number]) => branch.transitHours ?? branch.driveHours,
+        display: (branch: TripDocument["branches"][number]) => `${branch.transitHours ?? branch.driveHours}h`,
+      },
+      {
+        label: "Driving time",
+        hint: "Hours behind the wheel",
+        direction: "lower" as const,
+        score: (branch: TripDocument["branches"][number]) => branch.driveHours,
+        display: (branch: TripDocument["branches"][number]) => `${branch.driveHours}h`,
+      },
+      {
+        label: "Experience coverage",
+        hint: "More must-haves retained",
+        direction: "higher" as const,
+        score: (branch: TripDocument["branches"][number]) => branch.experienceScore,
+        display: (branch: TripDocument["branches"][number]) => `${branch.experienceScore}/10`,
+      },
+      {
+        label: "Luggage freedom",
+        hint: "Less packing restriction",
+        direction: "higher" as const,
+        score: (branch: TripDocument["branches"][number]) => levelScore[branch.luggageFlexibility ?? branch.flexibility],
+        display: (branch: TripDocument["branches"][number]) => branch.luggageFlexibility ?? branch.flexibility,
+      },
+      {
+        label: "Booking simplicity",
+        hint: "Fewer moving parts",
+        direction: "lower" as const,
+        score: (branch: TripDocument["branches"][number]) => levelScore[branch.bookingComplexity ?? "Medium"],
+        display: (branch: TripDocument["branches"][number]) =>
+          branch.bookingComplexity === "Low" ? "Simple" : branch.bookingComplexity === "High" ? "Complex" : "Moderate",
+      },
+      {
+        label: "Route flexibility",
+        hint: "Easier to change en route",
+        direction: "higher" as const,
+        score: (branch: TripDocument["branches"][number]) => levelScore[branch.flexibility],
+        display: (branch: TripDocument["branches"][number]) => branch.flexibility,
+      },
+    ],
+    [],
   );
   const activeIsSaved = savedTrips.some((trip) => trip.id === activeTrip.id);
 
@@ -352,20 +429,66 @@ export function TripForkApp() {
           <button className="button button-light" onClick={() => document.getElementById(`branch-${recommendation.branchId}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>View recommendation</button>
         </div>
 
+        <div className="comparison-toolbar matrix-toolbar">
+          <div className="branch-select">
+            <span>Compare</span>
+            {activeTrip.branches.map((branch, index) => (
+              <button key={branch.id} onClick={() => toggleBranch(branch.id)} className={selected.includes(branch.id) ? "selected" : ""} aria-pressed={selected.includes(branch.id)}>
+                <i style={{ background: branchAccents[index] }} />{String.fromCharCode(65 + index)}
+              </button>
+            ))}
+          </div>
+          <label className="switch"><input type="checkbox" checked={differencesOnly} onChange={(event) => setDifferencesOnly(event.target.checked)} /><span />Differences only</label>
+        </div>
+
+        <section className="comparison-matrix" aria-labelledby="comparison-matrix-title">
+          <div className="matrix-heading">
+            <div>
+              <span>At-a-glance decision table</span>
+              <h3 id="comparison-matrix-title">Every tradeoff, side by side.</h3>
+            </div>
+            <p><b>✓</b> marks the strongest option in that row. Ties can have more than one winner.</p>
+          </div>
+          <div className="matrix-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Category</th>
+                  {comparedBranches.map((branch) => (
+                    <th scope="col" key={branch.id} style={{ "--accent": branchAccents[activeTrip.branches.findIndex((item) => item.id === branch.id)] } as React.CSSProperties}>
+                      <span>Plan {String.fromCharCode(65 + activeTrip.branches.findIndex((item) => item.id === branch.id))}</span>
+                      <strong>{branch.name}</strong>
+                      <small>{branch.transportMode || "Mixed transport"}</small>
+                      {branch.id === recommendation.branchId && <b>Recommended</b>}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {comparisonRows.map((row) => {
+                  const scores = comparedBranches.map(row.score);
+                  const best = row.direction === "lower" ? Math.min(...scores) : Math.max(...scores);
+                  return (
+                    <tr key={row.label}>
+                      <th scope="row"><strong>{row.label}</strong><small>{row.hint}</small></th>
+                      {comparedBranches.map((branch) => {
+                        const isBest = row.score(branch) === best;
+                        return <td className={isBest ? "matrix-best" : ""} key={branch.id}><span>{row.display(branch)}</span>{isBest && <b className="winner-check" aria-label="Best in this category">✓</b>}</td>;
+                      })}
+                    </tr>
+                  );
+                })}
+                <tr className="matrix-text-row">
+                  <th scope="row"><strong>Main tradeoff</strong><small>What you give up</small></th>
+                  {comparedBranches.map((branch) => <td key={branch.id}>{branch.tradeoffs.slice(0, 2).join(" · ")}</td>)}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         <div className="planning-grid">
           <div className="comparison-area">
-            <div className="comparison-toolbar">
-              <div className="branch-select">
-                <span>Compare</span>
-                {activeTrip.branches.map((branch, index) => (
-                  <button key={branch.id} onClick={() => toggleBranch(branch.id)} className={selected.includes(branch.id) ? "selected" : ""} aria-pressed={selected.includes(branch.id)}>
-                    <i style={{ background: branchAccents[index] }} />{String.fromCharCode(65 + index)}
-                  </button>
-                ))}
-              </div>
-              <label className="switch"><input type="checkbox" checked={differencesOnly} onChange={(event) => setDifferencesOnly(event.target.checked)} /><span />Differences only</label>
-            </div>
-
             <div className="branch-grid" style={{ "--branch-count": comparedBranches.length } as React.CSSProperties}>
               {comparedBranches.map((branch) => {
                 const index = activeTrip.branches.findIndex((item) => item.id === branch.id);

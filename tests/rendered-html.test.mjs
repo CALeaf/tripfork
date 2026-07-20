@@ -34,6 +34,11 @@ test("server-renders the TripFork decision workspace", async () => {
   assert.match(html, /What if we win The Wave/);
   assert.match(html, /Keep the 6-day loop/);
   assert.match(html, /Win \+ fly to Vegas/);
+  assert.match(html, /Every tradeoff, side by side/);
+  assert.match(html, /Estimated cost/);
+  assert.match(html, /Trip pace/);
+  assert.match(html, /Door-to-door transit/);
+  assert.match(html, /Luggage freedom/);
   assert.match(html, /Fork a new trip/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });

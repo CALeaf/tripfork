@@ -79,7 +79,7 @@ test("returns a Chinese comparison when Chinese is selected", async () => {
     payload.trip.branches.map((branch) => branch.transportMode),
     ["自驾", "飞机 + 租车"],
   );
-  assert.match(payload.trip.recommendations.pending.rationale, /门到门时间/);
+  assert.match(payload.trip.recommendations.pending.rationale, /从家出发到真正抵达/);
 });
 
 test("builds transport branches from an existing itinerary", async () => {

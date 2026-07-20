@@ -282,12 +282,12 @@ export function TripForkApp() {
       setTripInput(createEmptyInput(locale));
       setNotice(
         payload.source === "openai"
-          ? locale === "zh" ? "完整对比已生成，检查后即可保存。" : "Your full comparison is ready. Review it, then save it."
-          : locale === "zh" ? "完整演示对比已生成；接入 API 后可使用实时 AI 规划。" : "A complete demo comparison is ready. Add OPENAI_API_KEY for live AI planning.",
+          ? locale === "zh" ? "几种方案都整理好了，看看哪一种更适合你。" : "Your full comparison is ready. Review it, then save it."
+          : locale === "zh" ? "演示方案已经整理好了。" : "A complete demo comparison is ready. Add OPENAI_API_KEY for live AI planning.",
       );
       window.setTimeout(() => document.getElementById("compare")?.scrollIntoView({ behavior: "smooth" }), 50);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : locale === "zh" ? "暂时无法比较这趟旅行。" : "Could not compare this trip.");
+      setNotice(error instanceof Error ? error.message : locale === "zh" ? "刚刚没能整理出方案，再试一次吧。" : "Could not compare this trip.");
     } finally {
       setGenerating(false);
     }
@@ -295,7 +295,7 @@ export function TripForkApp() {
 
   async function saveCurrentTrip() {
     if (!ownerId.current || activeTrip.id === sampleTrip.id) {
-      if (activeTrip.id === sampleTrip.id) setNotice(locale === "zh" ? "请先创建自己的旅行；示例不会被修改。" : "Create your own trip first; the sample stays unchanged.");
+      if (activeTrip.id === sampleTrip.id) setNotice(locale === "zh" ? "先用自己的行程做一个对比吧，示例本身不会被改动。" : "Create your own trip first; the sample stays unchanged.");
       return;
     }
     setSaving(true);
@@ -311,9 +311,9 @@ export function TripForkApp() {
       setActiveTrip(saved);
       setSavedTrips((current) => [saved, ...current.filter((trip) => trip.id !== saved.id)]);
       setDirty(false);
-      setNotice(locale === "zh" ? "已保存。你可以在这台设备的“我的旅行”中重新打开。" : "Saved. You can reopen this trip from My trips on this device.");
+      setNotice(locale === "zh" ? "保存好了。下次可以从“我的方案”里继续看。" : "Saved. You can reopen this trip from My trips on this device.");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : locale === "zh" ? "暂时无法保存行程。" : "Could not save this trip.");
+      setNotice(error instanceof Error ? error.message : locale === "zh" ? "刚刚没保存成功，再试一次吧。" : "Could not save this trip.");
     } finally {
       setSaving(false);
     }
@@ -342,12 +342,12 @@ export function TripForkApp() {
       body: JSON.stringify({ owner: ownerId.current, id: activeTrip.id }),
     });
     if (!response.ok) {
-      setNotice(locale === "zh" ? "暂时无法删除行程。" : "Could not delete the trip.");
+      setNotice(locale === "zh" ? "刚刚没删成功，再试一次吧。" : "Could not delete the trip.");
       return;
     }
     setSavedTrips((current) => current.filter((trip) => trip.id !== activeTrip.id));
     openTrip(sampleTrip.id);
-    setNotice(locale === "zh" ? "行程已删除。" : "Trip deleted.");
+    setNotice(locale === "zh" ? "这个方案已经删掉了。" : "Trip deleted.");
   }
 
   function exportTrip() {
@@ -443,7 +443,7 @@ export function TripForkApp() {
           <details className="input-receipt">
             <summary>
               <span>{copy.inputs}</span>
-              <b>{activeTrip.inputSummary.transportModes.join(" vs ")}</b>
+              <b>{activeTrip.inputSummary.transportModes.join(locale === "zh" ? " / " : " vs ")}</b>
             </summary>
             <div className="input-receipt-grid">
               <div><span>{copy.startingFrom}</span><p>{activeTrip.inputSummary.origin || copy.notSpecified}</p></div>
@@ -604,7 +604,7 @@ export function TripForkApp() {
                 <label><span>{copy.startingFrom}</span><input value={tripInput.origin} onChange={(e) => setTripInput({ ...tripInput, origin: e.target.value })} placeholder={locale === "zh" ? "旧金山湾区" : "San Francisco Bay Area"} /></label>
                 <label><span>{copy.decisionDate}</span><input value={tripInput.decisionDate} onChange={(e) => setTripInput({ ...tripInput, decisionDate: e.target.value })} placeholder={locale === "zh" ? "7 月 18 日公布抽签结果" : "Lottery result Jul 18"} /></label>
               </div>
-              <label><span>{copy.baseline}</span><textarea required minLength={20} rows={5} value={tripInput.notes} onChange={(e) => setTripInput({ ...tripInput, notes: e.target.value })} placeholder={locale === "zh" ? "粘贴已有行程：第 1 天旧金山 → 拉斯维加斯；第 2 天锡安 → 布莱斯……TripFork 会把它保留为基准方案。" : "Paste the itinerary you already have: Day 1 SF → Vegas; Day 2 Zion → Bryce… TripFork will preserve it as the baseline."} /></label>
+              <label><span>{copy.baseline}</span><textarea required minLength={20} rows={5} value={tripInput.notes} onChange={(e) => setTripInput({ ...tripInput, notes: e.target.value })} placeholder={locale === "zh" ? "比如：第 1 天旧金山 → 拉斯维加斯；第 2 天锡安 → 布莱斯……不用重新整理，直接把已有行程贴过来。" : "Paste the itinerary you already have: Day 1 SF → Vegas; Day 2 Zion → Bryce… TripFork will preserve it as the baseline."} /></label>
               <label><span>{copy.inputPoints}</span><textarea rows={3} value={tripInput.places} onChange={(e) => setTripInput({ ...tripInput, places: e.target.value })} placeholder={locale === "zh" ? "锡安、布莱斯、佩吉、The Wave 抽签、下午 1:15 的羚羊谷、纪念碑谷……" : "Zion, Bryce, Page, The Wave lottery, Antelope Canyon at 1:15 PM, Monument Valley…"} /></label>
               <fieldset className="transport-picker">
                 <legend>{copy.transportQuestion}</legend>

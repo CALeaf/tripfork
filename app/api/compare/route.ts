@@ -336,14 +336,14 @@ function demoTripZh(input: TripInput): z.infer<typeof GeneratedTrip> {
       id: `transport-${index + 1}`,
       name: displayMode,
       subtitle: isDrive
-        ? "路线和行李自由度最高"
+        ? "想临时改路线、带行李都最方便"
         : isRental
-          ? "省下长途时间，同时保留目的地自驾体验"
+          ? "省掉长途驾驶，到了目的地还能自己开"
           : isTransit
-            ? "不用开车，但需要配合班次"
+            ? "不用开车，但行程要跟着班次走"
             : isTrain
-              ? "移动更慢，但途中可以休息"
-              : "兼顾时间、花销和体验的交通组合",
+              ? "花的时间更长，不过路上可以休息"
+              : "在时间、花销和体验之间找个平衡",
       days: 6,
       cost: isDrive ? 1800 : isRental ? 2500 : isTransit ? 2200 : isTrain ? 2000 : 2300,
       transportMode: displayMode,
@@ -355,30 +355,30 @@ function demoTripZh(input: TripInput): z.infer<typeof GeneratedTrip> {
       experienceScore: isDrive ? 8 : isRental ? 9 : isTransit ? 7 : isTrain ? 7 : 9,
       flexibility: (isDrive ? "High" : isRental ? "Medium" : "Low") as "Low" | "Medium" | "High",
       summary: isDrive
-        ? "最大程度保留已有路线，也最容易临时增加停靠点。"
+        ? "原来的路线基本不用动，路上想临时加一站也最方便。"
         : isRental
-          ? "最长的一段改乘飞机，落地后继续租车完成环线。"
-          : "减少大部分驾驶，但路线需要围绕班次和换乘点安排。",
+          ? "最远的一段改坐飞机，落地取车以后继续走环线。"
+          : "不用一直开车，但路线要围绕班次和换乘点来排。",
       changes: isDrive
-        ? ["保留基准路线", "行李不受航空限制"]
+        ? ["原路线基本不动", "行李不用按航空规定精简"]
         : isRental
-          ? ["用飞机替代最长的一段驾驶", "在目的地机场领取租车"]
-          : ["把地点集中在交通枢纽附近", "调整或放弃必须开车才能到达的停靠点"],
+          ? ["最远的一段不再自己开", "落地后去机场取车"]
+          : ["住宿和景点尽量放在交通方便的地方", "必须开车才能到的地方可能要调整"],
       tradeoffs: isDrive
-        ? ["长时间驾驶", "油费和停车费", "驾驶疲劳"]
+        ? ["要开很久", "油费和停车费", "司机会比较累"]
         : isRental
-          ? ["机票和租车花销", "机场和取车时间", "更多预订环节"]
-          : ["临时绕行自由", "行李自由度", "偏远地点"],
+          ? ["机票和租车更贵", "机场和取车也要花时间", "要订的东西更多"]
+          : ["不能随时绕路", "带行李不太方便", "偏远的地方难去"],
       timeline: [
-        { day: "基准计划", title: input.notes.slice(0, 72), detail: `围绕“${displayMode}”重新整理` },
-        { day: "主要地点", title: input.places || input.destination, detail: "固定项目保留；可移动和可舍弃项目承担取舍" },
+        { day: "原计划", title: input.notes.slice(0, 72), detail: `按“${displayMode}”重新排一遍` },
+        { day: "想去的地方", title: input.places || input.destination, detail: "已经订好的不动；能换日期和能舍弃的项目用来腾挪" },
       ],
     };
   });
   const first = profiles[0];
   const second = profiles[1] ?? first;
   return {
-    title: input.title || `${input.destination}：比较每一种走法`,
+    title: input.title || `${input.destination}：几种走法怎么选？`,
     destination: input.destination,
     dateSummary: input.dates || "日期未确定",
     travelers: input.travelers || "人数未确定",
@@ -386,37 +386,37 @@ function demoTripZh(input: TripInput): z.infer<typeof GeneratedTrip> {
     decision: {
       name: input.uncertainty || "最终路线选择",
       question: input.transportModes.length > 1
-        ? `哪一种交通取舍更合适：${profiles.map((profile) => profile.transportMode).join(" vs ")}？`
-        : `“${input.uncertainty || "最终路线"}”确定后，计划应该怎么调整？`,
-      decisionDate: input.decisionDate || "决策日期未确定",
+        ? `${profiles.map((profile) => profile.transportMode).join("，还是")}？`
+        : `等“${input.uncertainty || "最终路线"}”确定后，行程要怎么改？`,
+      decisionDate: input.decisionDate || "还没写什么时候必须决定",
       positiveLabel: first.name,
       negativeLabel: second.name,
     },
     recommendations: {
       pending: {
         branchId: second.id,
-        title: `预订前先完整比较“${first.name}”和“${second.name}”。`,
-        rationale: "不要只看票价或驾驶时间，要一起比较门到门时间和整趟旅行的总花销。",
-        actions: ["核对门到门交通时间", "把油费、停车、机票和租车放在一起计算"],
+        title: `先别急着订，把“${first.name}”和“${second.name}”算清楚。`,
+        rationale: "别只看机票多少钱或要开几个小时。把从家出发到真正抵达的时间，以及油费、停车、租车这些一起算进去，答案才比较准。",
+        actions: ["算一下两种走法各自在路上要花多久", "把油费、停车、机票和租车放在一起算总价"],
       },
       positive: {
         branchId: first.id,
-        title: `选择“${first.name}”。`,
-        rationale: "这个方案尽量保留原始计划和固定项目，同时把交通方式带来的取舍说清楚。",
-        actions: ["核实完整交通花销", "确认固定预订", "释放未采用的备选方案"],
+        title: `更建议选“${first.name}”。`,
+        rationale: "这套走法对原计划改动更少，已经订好的项目也能保住；代价是什么也都列出来了。",
+        actions: ["再核一下交通总花销", "确认已经订好的项目不受影响", "取消最后没选的备选方案"],
       },
       negative: {
         branchId: second.id,
-        title: `选择“${second.name}”。`,
-        rationale: "这个方案用花销换回时间或体力，并明确展示与原计划相比需要改动什么。",
-        actions: ["预订长途交通", "确认目的地内的移动方式", "释放未采用的备选方案"],
+        title: `更建议选“${second.name}”。`,
+        rationale: "这套走法可能贵一些，但能省时间、少受累。和原计划相比要改哪些地方，也已经列清楚了。",
+        actions: ["先订最关键的长途交通", "确认到了当地以后怎么走", "取消最后没选的备选方案"],
       },
     },
     branches: profiles,
     checklist: [
-      { label: "核对所有免费取消截止时间", dueDate: "今天", kind: "check" },
-      { label: "锁定可退款的备选方案", dueDate: input.decisionDate || "截止日前", kind: "book" },
-      { label: "确定最终变量结果", dueDate: input.decisionDate || "决策日", kind: "decide" },
+      { label: "把所有免费取消时间记下来", dueDate: "今天", kind: "check" },
+      { label: "先订下可退款的备选方案", dueDate: input.decisionDate || "免费取消截止前", kind: "book" },
+      { label: "确定最后到底怎么走", dueDate: input.decisionDate || "必须做决定的那天", kind: "decide" },
     ],
   };
 }
@@ -453,7 +453,7 @@ export async function POST(request: Request) {
   const input = normalizeInput(body?.trip);
   if (!input) {
     return Response.json(
-      { error: locale === "zh" ? "请填写目的地和已有行程，并选择要比较的交通方式或不确定变量。" : "Add a destination and the itinerary you already have. Choose transport modes or add an uncertainty to compare." },
+      { error: locale === "zh" ? "先告诉我们要去哪儿、现在怎么安排，再选一下想比较的交通方式，或者还有什么没定下来。" : "Add a destination and the itinerary you already have. Choose transport modes or add an uncertainty to compare." },
       { status: 400 },
     );
   }
@@ -472,7 +472,7 @@ export async function POST(request: Request) {
         {
           role: "system",
           content:
-            `You are TripFork, a travel comparison engine. Treat the user's existing plan as the baseline, not disposable notes. Never move locked items. Move only movable items and drop only optional items. When 2–3 transport modes are requested, create a distinct complete branch for each one. Compare door-to-door transit time, driving time, full-trip cost (fuel, parking, flights, rental, local transit), fatigue, luggage freedom, booking complexity, route flexibility, and which supplied places no longer fit. Never claim live prices or availability; costs are labeled estimates. Preserve must-haves where feasible and state honest tradeoffs when they cannot all fit. Every pending/positive/negative recommendation must reference an existing branch id. Produce concrete next actions, not generic travel advice. Return every user-facing string in ${locale === "zh" ? "Simplified Chinese" : "English"}.`,
+            `You are TripFork, a travel comparison engine. Treat the user's existing plan as the baseline, not disposable notes. Never move locked items. Move only movable items and drop only optional items. When 2–3 transport modes are requested, create a distinct complete branch for each one. Compare door-to-door transit time, driving time, full-trip cost (fuel, parking, flights, rental, local transit), fatigue, luggage freedom, booking complexity, route flexibility, and which supplied places no longer fit. Never claim live prices or availability; costs are labeled estimates. Preserve must-haves where feasible and state honest tradeoffs when they cannot all fit. Every pending/positive/negative recommendation must reference an existing branch id. Produce concrete next actions, not generic travel advice. Return every user-facing string in ${locale === "zh" ? "natural, concise Simplified Chinese written for Chinese independent travelers. Do not translate English product jargon literally; prefer everyday phrases such as 路上总共要多久, 行程有多赶, 已经订好的, and 哪些地方可以不去" : "English"}.`,
         },
         {
           role: "user",

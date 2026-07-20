@@ -26,6 +26,7 @@ const Branch = z.object({
   fatigue: z.number().min(1).max(10),
   experienceScore: z.number().min(1).max(10),
   flexibility: z.enum(["Low", "Medium", "High"]),
+  outcomes: z.array(z.enum(["pending", "positive", "negative"])).optional(),
   summary: z.string(),
   changes: z.array(z.string()),
   tradeoffs: z.array(z.string()),
@@ -472,7 +473,7 @@ export async function POST(request: Request) {
         {
           role: "system",
           content:
-            `You are TripFork, a travel comparison engine. Treat the user's existing plan as the baseline, not disposable notes. Never move locked items. Move only movable items and drop only optional items. When 2–3 transport modes are requested, create a distinct complete branch for each one. Compare door-to-door transit time, driving time, full-trip cost (fuel, parking, flights, rental, local transit), fatigue, luggage freedom, booking complexity, route flexibility, and which supplied places no longer fit. Never claim live prices or availability; costs are labeled estimates. Preserve must-haves where feasible and state honest tradeoffs when they cannot all fit. Every pending/positive/negative recommendation must reference an existing branch id. Produce concrete next actions, not generic travel advice. Return every user-facing string in ${locale === "zh" ? "natural, concise Simplified Chinese written for Chinese independent travelers. Do not translate English product jargon literally; prefer everyday phrases such as 路上总共要多久, 行程有多赶, 已经订好的, and 哪些地方可以不去" : "English"}.`,
+            `You are TripFork, a travel comparison engine. Treat the user's existing plan as the baseline, not disposable notes. Never move locked items. Move only movable items and drop only optional items. When 2–3 transport modes are requested, create a distinct complete branch for each one. Compare door-to-door transit time, driving time, full-trip cost (fuel, parking, flights, rental, local transit), fatigue, luggage freedom, booking complexity, route flexibility, and which supplied places no longer fit. Never claim live prices or availability; costs are labeled estimates. Preserve must-haves where feasible and state honest tradeoffs when they cannot all fit. Every pending/positive/negative recommendation must reference an existing branch id. When a branch only works for certain decision outcomes, list those values in outcomes; use pending for branches that can be held while waiting. Produce concrete next actions, not generic travel advice. Return every user-facing string in ${locale === "zh" ? "natural, concise Simplified Chinese written for Chinese independent travelers. Do not translate English product jargon literally; prefer everyday phrases such as 路上总共要多久, 行程有多赶, 已经订好的, and 哪些地方可以不去" : "English"}.`,
         },
         {
           role: "user",

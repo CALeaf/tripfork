@@ -9,6 +9,8 @@ coverage.
 
 Built for the **Apps for Your Life** category of OpenAI Build Week 2026.
 
+**[Try the public demo](https://tripfork-build-week.ssdqtn.chatgpt.site/)** — no sign-in required.
+
 ## The problem
 
 Travel plans rarely have one fixed answer:
@@ -43,15 +45,17 @@ Users can:
 - compare days, estimated cost, driving, fatigue, experience coverage, route
   changes, total door-to-door transit time, luggage freedom, booking
   complexity, and explicit tradeoffs;
+- choose what matters most—balanced, save money, take it easy, save time, or
+  see more—and watch the overall fit score and recommendation change;
 - choose a final branch and complete a concrete action checklist;
 - save, reopen, update, and delete trips through Cloudflare D1;
 - export the active comparison and decisions as editable Markdown;
 - generate structured branches with GPT-5.6, with a complete Hawaii fallback
   when no API key is configured.
 
-The composer includes a second real scenario: a seven-day Hawaii Big Island
-trip affected by volcano activity, Mauna Kea weather, fixed manta-ray diving,
-and swimming-safety constraints.
+The public demo includes a second one-click real scenario: a seven-day Hawaii
+Big Island trip affected by volcano activity, Mauna Kea weather, fixed
+manta-ray diving, and swimming-safety constraints.
 
 ## How GPT-5.6 is used
 

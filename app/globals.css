@@ -254,6 +254,39 @@ a {
   margin-top: 30px;
 }
 
+.hero-examples {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 17px;
+}
+
+.hero-examples > span {
+  color: #7a817d;
+  font-size: 10px;
+  font-weight: 700;
+  margin-right: 3px;
+}
+
+.hero-examples button {
+  background: transparent;
+  border: 1px solid #c9c6bd;
+  border-radius: 999px;
+  color: #53605a;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 750;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.hero-examples button:hover {
+  background: white;
+  border-color: #a9aaa4;
+  color: var(--ink);
+}
+
 .hero-decision {
   align-self: center;
   background: var(--green);
@@ -569,6 +602,116 @@ a {
   max-width: 850px;
 }
 
+.priority-panel {
+  align-items: stretch;
+  background: var(--card);
+  border: 1px solid #d9d6ce;
+  border-radius: 18px;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 220px minmax(0, 1fr) 170px;
+  margin: 0 auto 18px;
+  max-width: 1500px;
+  padding: 18px;
+}
+
+.priority-heading {
+  align-self: center;
+}
+
+.priority-heading > span,
+.priority-result > span {
+  color: var(--orange);
+  display: block;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.priority-heading h3 {
+  font-family: var(--font-display), sans-serif;
+  font-size: 17px;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+  margin: 5px 0;
+}
+
+.priority-heading p {
+  color: #777e7a;
+  font-size: 9px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.priority-options {
+  display: grid;
+  gap: 7px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.priority-options button {
+  background: #f3f0e9;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  min-height: 74px;
+  padding: 11px;
+  text-align: left;
+}
+
+.priority-options button:hover {
+  border-color: #cfc9be;
+}
+
+.priority-options button.active {
+  background: #fff3ec;
+  border-color: var(--orange);
+  box-shadow: 0 5px 15px rgba(255, 112, 72, 0.09);
+}
+
+.priority-options strong,
+.priority-options small {
+  display: block;
+}
+
+.priority-options strong {
+  font-size: 10px;
+}
+
+.priority-options small {
+  color: #858b87;
+  font-size: 8px;
+  line-height: 1.35;
+  margin-top: 5px;
+}
+
+.priority-result {
+  background: var(--green);
+  border-radius: 13px;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 15px;
+}
+
+.priority-result > span {
+  color: #b8d0c4;
+}
+
+.priority-result strong {
+  font-family: var(--font-display), sans-serif;
+  font-size: 13px;
+  line-height: 1.25;
+  margin: 7px 0;
+}
+
+.priority-result b {
+  color: #ffb39e;
+  font-size: 11px;
+}
+
 .comparison-toolbar {
   align-items: center;
   display: flex;
@@ -742,6 +885,21 @@ a {
   background: #eef7f1;
   color: #194f35;
   font-weight: 800;
+}
+
+.comparison-matrix .overall-fit-row th,
+.comparison-matrix .overall-fit-row td {
+  border-bottom: 2px solid #cfded5;
+  padding-bottom: 15px;
+  padding-top: 15px;
+}
+
+.overall-fit-row td > small {
+  color: #a15a44;
+  display: block;
+  font-size: 7px;
+  line-height: 1.25;
+  margin-top: 4px;
 }
 
 .winner-check {
@@ -1651,6 +1809,25 @@ footer > span {
 }
 
 @media (max-width: 1050px) {
+  .priority-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .priority-heading {
+    max-width: 520px;
+  }
+
+  .priority-result {
+    align-items: center;
+    flex-direction: row;
+    gap: 12px;
+    justify-content: flex-start;
+  }
+
+  .priority-result strong {
+    margin: 0;
+  }
+
   .planning-grid {
     grid-template-columns: 1fr;
   }
@@ -1807,6 +1984,28 @@ footer > span {
 
   .decision-banner .button {
     grid-column: 1 / -1;
+  }
+
+  .priority-panel {
+    padding: 14px;
+  }
+
+  .priority-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .priority-options button:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .priority-result {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .priority-result strong {
+    margin: 7px 0;
   }
 
   .comparison-toolbar {

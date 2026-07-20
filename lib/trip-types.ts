@@ -20,6 +20,7 @@ export type TripBranch = {
   fatigue: number;
   experienceScore: number;
   flexibility: "Low" | "Medium" | "High";
+  outcomes?: DecisionStatus[];
   summary: string;
   changes: string[];
   tradeoffs: string[];

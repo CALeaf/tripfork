@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { branchAccents, type DecisionStatus, type TripDocument, type TripInput } from "@/lib/trip-types";
-import { sampleTrip, sampleTripZh } from "@/lib/sample-trip";
+import { sampleHawaiiTrip, sampleHawaiiTripZh, sampleTrip, sampleTripZh } from "@/lib/sample-trip";
 import { localeNames, transportCopy, translateComplexity, translateKind, translateLevel, uiCopy, type Locale } from "@/lib/i18n";
 
 function createEmptyInput(locale: Locale): TripInput {
@@ -37,6 +37,16 @@ const transportChoices = [
 
 const levelScore = { Low: 1, Medium: 2, High: 3 } as const;
 
+type PreferenceId = "balanced" | "budget" | "easy" | "time" | "experience";
+
+const preferenceWeights: Record<PreferenceId, Record<string, number>> = {
+  balanced: { cost: 0.12, fatigue: 0.12, days: 0.05, transit: 0.07, drive: 0.07, experience: 0.27, luggage: 0.05, booking: 0.08, flexibility: 0.17 },
+  budget: { cost: 0.58, fatigue: 0.08, days: 0.05, transit: 0.05, drive: 0.04, experience: 0.08, luggage: 0.04, booking: 0.05, flexibility: 0.03 },
+  easy: { cost: 0.05, fatigue: 0.38, days: 0.05, transit: 0.13, drive: 0.18, experience: 0.06, luggage: 0.05, booking: 0.07, flexibility: 0.03 },
+  time: { cost: 0.05, fatigue: 0.1, days: 0.3, transit: 0.3, drive: 0.12, experience: 0.05, luggage: 0.02, booking: 0.03, flexibility: 0.03 },
+  experience: { cost: 0.04, fatigue: 0.06, days: 0.03, transit: 0.03, drive: 0.03, experience: 0.55, luggage: 0.04, booking: 0.04, flexibility: 0.18 },
+};
+
 function formatMoney(value: number, locale: Locale) {
   return new Intl.NumberFormat(locale === "zh" ? "zh-CN" : "en-US", {
     style: "currency",
@@ -61,9 +71,12 @@ function getOwnerId() {
   return id;
 }
 
-function tripMarkdown(trip: TripDocument, locale: Locale) {
+function tripMarkdown(
+  trip: TripDocument,
+  locale: Locale,
+  recommendation = trip.recommendations[trip.decision.status],
+) {
   const zh = locale === "zh";
-  const recommendation = trip.recommendations[trip.decision.status];
   const lines = [
     `# ${trip.title}`,
     "",
@@ -114,6 +127,7 @@ export function TripForkApp() {
   const [activeTrip, setActiveTrip] = useState<TripDocument>(sampleTrip);
   const [savedTrips, setSavedTrips] = useState<TripDocument[]>([]);
   const [selected, setSelected] = useState<string[]>(sampleTrip.branches.map((branch) => branch.id));
+  const [preference, setPreference] = useState<PreferenceId>("balanced");
   const [differencesOnly, setDifferencesOnly] = useState(false);
   const [isComposerOpen, setComposerOpen] = useState(false);
   const [tripInput, setTripInput] = useState<TripInput>(() => createEmptyInput("en"));
@@ -123,7 +137,17 @@ export function TripForkApp() {
   const [dirty, setDirty] = useState(false);
   const ownerId = useRef("");
   const copy = uiCopy[locale];
-  const localizedSample = locale === "zh" ? sampleTripZh : sampleTrip;
+  const localizedSamples = locale === "zh"
+    ? [sampleTripZh, sampleHawaiiTripZh]
+    : [sampleTrip, sampleHawaiiTrip];
+  const activeIsSample = localizedSamples.some((trip) => trip.id === activeTrip.id);
+  const preferenceOptions = useMemo(() => [
+    { id: "balanced" as const, label: copy.balanced, hint: copy.balancedHint },
+    { id: "budget" as const, label: copy.saveMoney, hint: copy.saveMoneyHint },
+    { id: "easy" as const, label: copy.takeItEasy, hint: copy.takeItEasyHint },
+    { id: "time" as const, label: copy.saveTime, hint: copy.saveTimeHint },
+    { id: "experience" as const, label: copy.seeMore, hint: copy.seeMoreHint },
+  ], [copy]);
 
   const recommendation = activeTrip.recommendations[activeTrip.decision.status];
   const comparedBranches = useMemo(
@@ -198,6 +222,69 @@ export function TripForkApp() {
     ],
     [copy, locale],
   );
+  const preferenceResult = useMemo(() => {
+    const eligible = activeTrip.branches.filter(
+      (branch) => selected.includes(branch.id) && (!branch.outcomes?.length || branch.outcomes.includes(activeTrip.decision.status)),
+    );
+    const eligibleIds = new Set(eligible.map((branch) => branch.id));
+    const weights = preferenceWeights[preference];
+    const metrics = [
+      { key: "cost", direction: "lower" as const, value: (branch: TripDocument["branches"][number]) => branch.cost },
+      { key: "fatigue", direction: "lower" as const, value: (branch: TripDocument["branches"][number]) => branch.fatigue },
+      { key: "days", direction: "lower" as const, value: (branch: TripDocument["branches"][number]) => branch.days },
+      { key: "transit", direction: "lower" as const, value: (branch: TripDocument["branches"][number]) => branch.transitHours ?? branch.driveHours },
+      { key: "drive", direction: "lower" as const, value: (branch: TripDocument["branches"][number]) => branch.driveHours },
+      { key: "experience", direction: "higher" as const, value: (branch: TripDocument["branches"][number]) => branch.experienceScore },
+      { key: "luggage", direction: "higher" as const, value: (branch: TripDocument["branches"][number]) => levelScore[branch.luggageFlexibility ?? branch.flexibility] },
+      { key: "booking", direction: "lower" as const, value: (branch: TripDocument["branches"][number]) => levelScore[branch.bookingComplexity ?? "Medium"] },
+      { key: "flexibility", direction: "higher" as const, value: (branch: TripDocument["branches"][number]) => levelScore[branch.flexibility] },
+    ];
+    const rawScores = new Map<string, number>();
+    for (const branch of eligible) {
+      let score = 0;
+      for (const metric of metrics) {
+        const values = eligible.map(metric.value);
+        const low = Math.min(...values);
+        const high = Math.max(...values);
+        const value = metric.value(branch);
+        const normalized = high === low
+          ? 1
+          : metric.direction === "lower"
+            ? (high - value) / (high - low)
+            : (value - low) / (high - low);
+        score += normalized * weights[metric.key];
+      }
+      rawScores.set(branch.id, score);
+    }
+    if (preference === "balanced" && eligibleIds.has(recommendation.branchId)) {
+      rawScores.forEach((score, id) => rawScores.set(id, id === recommendation.branchId ? 1 : Math.min(score, 0.96)));
+    }
+    const preferred = eligible.reduce((best, branch) =>
+      (rawScores.get(branch.id) ?? 0) > (rawScores.get(best.id) ?? 0) ? branch : best,
+    eligible[0] ?? activeTrip.branches[0]);
+    const scores = new Map(activeTrip.branches.map((branch) => [
+      branch.id,
+      eligibleIds.has(branch.id) ? Math.round((rawScores.get(branch.id) ?? 0) * 100) : null,
+    ]));
+    return { eligibleIds, preferred, scores };
+  }, [activeTrip, preference, recommendation.branchId, selected]);
+  const selectedPreference = preferenceOptions.find((option) => option.id === preference) ?? preferenceOptions[0];
+  const displayRecommendation = useMemo(() => {
+    if (preference === "balanced" && preferenceResult.preferred.id === recommendation.branchId) return recommendation;
+    const branch = preferenceResult.preferred;
+    return {
+      branchId: branch.id,
+      title: locale === "zh"
+        ? `如果你最在意“${selectedPreference.label}”，${branch.name}更合适。`
+        : `If “${selectedPreference.label}” matters most, ${branch.name} fits better.`,
+      rationale: locale === "zh"
+        ? `${branch.summary} 大概花 ${formatMoney(branch.cost, locale)}，路上 ${branch.transitHours ?? branch.driveHours} 小时，行程强度 ${branch.fatigue}/10。`
+        : `${branch.summary} It is about ${formatMoney(branch.cost, locale)}, ${branch.transitHours ?? branch.driveHours} hours in transit, and ${branch.fatigue}/10 fatigue.`,
+      actions: locale === "zh"
+        ? [`核一下“${branch.name}”的完整花销`, "确认已经订好的项目不受影响", "决定前先保留可退款的备选方案"]
+        : [`Verify the full cost of “${branch.name}”`, "Confirm fixed bookings still work", "Keep the refundable alternative until you decide"],
+    };
+  }, [locale, preference, preferenceResult.preferred, recommendation, selectedPreference.label]);
   const activeIsSaved = savedTrips.some((trip) => trip.id === activeTrip.id);
 
   useEffect(() => {
@@ -221,8 +308,9 @@ export function TripForkApp() {
   function changeLocale(nextLocale: Locale) {
     setLocale(nextLocale);
     window.localStorage.setItem("tripfork_locale", nextLocale);
-    if (activeTrip.id === sampleTrip.id) {
-      const nextSample = nextLocale === "zh" ? sampleTripZh : sampleTrip;
+    if (activeIsSample) {
+      const nextSamples = nextLocale === "zh" ? [sampleTripZh, sampleHawaiiTripZh] : [sampleTrip, sampleHawaiiTrip];
+      const nextSample = nextSamples.find((trip) => trip.id === activeTrip.id) ?? nextSamples[0];
       setActiveTrip(nextSample);
       setSelected(nextSample.branches.map((branch) => branch.id));
       setDirty(false);
@@ -255,6 +343,11 @@ export function TripForkApp() {
           : [...current.transportModes, mode],
       };
     });
+  }
+
+  function choosePreference(nextPreference: PreferenceId) {
+    setPreference(nextPreference);
+    setNotice(copy.preferenceUpdated);
   }
 
   function setStatus(status: DecisionStatus) {
@@ -294,8 +387,8 @@ export function TripForkApp() {
   }
 
   async function saveCurrentTrip() {
-    if (!ownerId.current || activeTrip.id === sampleTrip.id) {
-      if (activeTrip.id === sampleTrip.id) setNotice(locale === "zh" ? "先用自己的行程做一个对比吧，示例本身不会被改动。" : "Create your own trip first; the sample stays unchanged.");
+    if (!ownerId.current || activeIsSample) {
+      if (activeIsSample) setNotice(locale === "zh" ? "先用自己的行程做一个对比吧，示例本身不会被改动。" : "Create your own trip first; the sample stays unchanged.");
       return;
     }
     setSaving(true);
@@ -320,9 +413,10 @@ export function TripForkApp() {
   }
 
   function openTrip(id: string) {
-    if (id === sampleTrip.id) {
-      setActiveTrip(localizedSample);
-      setSelected(localizedSample.branches.map((branch) => branch.id));
+    const sample = localizedSamples.find((trip) => trip.id === id);
+    if (sample) {
+      setActiveTrip(sample);
+      setSelected(sample.branches.map((branch) => branch.id));
     } else {
       const trip = savedTrips.find((item) => item.id === id);
       if (!trip) return;
@@ -333,8 +427,13 @@ export function TripForkApp() {
     setNotice(copy.tripLoaded);
   }
 
+  function openExample(id: string) {
+    openTrip(id);
+    window.setTimeout(() => document.getElementById("compare")?.scrollIntoView({ behavior: "smooth" }), 50);
+  }
+
   async function deleteCurrentTrip() {
-    if (!ownerId.current || activeTrip.id === sampleTrip.id) return;
+    if (!ownerId.current || activeIsSample) return;
     if (!window.confirm(locale === "zh" ? `删除“${activeTrip.title}”？` : `Delete “${activeTrip.title}”?`)) return;
     const response = await fetch("/api/trips", {
       method: "DELETE",
@@ -351,7 +450,7 @@ export function TripForkApp() {
   }
 
   function exportTrip() {
-    const blob = new Blob([tripMarkdown(activeTrip, locale)], { type: "text/markdown;charset=utf-8" });
+    const blob = new Blob([tripMarkdown(activeTrip, locale, displayRecommendation)], { type: "text/markdown;charset=utf-8" });
     const href = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = href;
@@ -390,6 +489,11 @@ export function TripForkApp() {
           <h1>{copy.heroTitleOne}<br />{copy.heroTitleTwo}</h1>
           <p>{copy.heroDescription}</p>
           <button className="button button-dark hero-cta" onClick={() => setComposerOpen(true)}>{copy.buildComparison}</button>
+          <div className="hero-examples">
+            <span>{copy.tryExample}</span>
+            <button type="button" onClick={() => openExample(sampleTrip.id)}>{copy.southwestExample}</button>
+            <button type="button" onClick={() => openExample(sampleHawaiiTrip.id)}>{copy.hawaiiExample}</button>
+          </div>
         </div>
         <div className="hero-decision">
           <span>{copy.currentFork}</span>
@@ -404,7 +508,8 @@ export function TripForkApp() {
             <span>{copy.myTrips}</span>
             <select value={activeTrip.id} onChange={(event) => openTrip(event.target.value)}>
               <option value={sampleTrip.id}>{copy.sampleTrip}</option>
-              {activeTrip.id !== sampleTrip.id && !activeIsSaved && (
+              <option value={sampleHawaiiTrip.id}>{copy.sampleHawaii}</option>
+              {!activeIsSample && !activeIsSaved && (
                 <option value={activeTrip.id}>{activeTrip.title} · {copy.unsaved}</option>
               )}
               {savedTrips.map((trip) => <option value={trip.id} key={trip.id}>{trip.title}</option>)}
@@ -413,7 +518,7 @@ export function TripForkApp() {
           <div className="workspace-actions">
             {activeIsSaved && <button className="text-button danger" onClick={deleteCurrentTrip}>{copy.delete}</button>}
             <button className="button button-quiet" onClick={exportTrip}>{copy.export}</button>
-            <button className="button button-dark" onClick={saveCurrentTrip} disabled={isSaving || activeTrip.id === sampleTrip.id}>
+            <button className="button button-dark" onClick={saveCurrentTrip} disabled={isSaving || activeIsSample}>
               {isSaving ? copy.saving : dirty ? copy.saveChanges : copy.saved}
             </button>
           </div>
@@ -460,11 +565,39 @@ export function TripForkApp() {
           <div className="decision-icon" aria-hidden="true">↳</div>
           <div>
             <span>{copy.recommendation} · {activeTrip.decision.status === "pending" ? copy.pending : activeTrip.decision.status === "positive" ? activeTrip.decision.positiveLabel : activeTrip.decision.negativeLabel}</span>
-            <h3>{recommendation.title}</h3>
-            <p>{recommendation.rationale}</p>
+            <h3>{displayRecommendation.title}</h3>
+            <p>{displayRecommendation.rationale}</p>
           </div>
-          <button className="button button-light" onClick={() => document.getElementById(`branch-${recommendation.branchId}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>{copy.viewRecommendation}</button>
+          <button className="button button-light" onClick={() => document.getElementById(`branch-${displayRecommendation.branchId}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>{copy.viewRecommendation}</button>
         </div>
+
+        <section className="priority-panel" aria-labelledby="priority-title">
+          <div className="priority-heading">
+            <span>{copy.priorityEyebrow}</span>
+            <h3 id="priority-title">{copy.priorityTitle}</h3>
+            <p>{copy.priorityHelp}</p>
+          </div>
+          <div className="priority-options" role="radiogroup" aria-label={copy.priorityTitle}>
+            {preferenceOptions.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                role="radio"
+                aria-checked={preference === option.id}
+                className={preference === option.id ? "active" : ""}
+                onClick={() => choosePreference(option.id)}
+              >
+                <strong>{option.label}</strong>
+                <small>{option.hint}</small>
+              </button>
+            ))}
+          </div>
+          <div className="priority-result" aria-live="polite">
+            <span>{copy.bestFitNow}</span>
+            <strong>{preferenceResult.preferred.name}</strong>
+            <b>{preferenceResult.scores.get(preferenceResult.preferred.id) ?? 0}/100</b>
+          </div>
+        </section>
 
         <div className="comparison-toolbar matrix-toolbar">
           <div className="branch-select">
@@ -496,12 +629,26 @@ export function TripForkApp() {
                       <span>{copy.plan} {String.fromCharCode(65 + activeTrip.branches.findIndex((item) => item.id === branch.id))}</span>
                       <strong>{branch.name}</strong>
                       <small>{branch.transportMode || copy.mixedTransport}</small>
-                      {branch.id === recommendation.branchId && <b>{copy.recommended}</b>}
+                      {branch.id === displayRecommendation.branchId && <b>{copy.recommended}</b>}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
+                <tr className="overall-fit-row">
+                  <th scope="row"><strong>{copy.overallFit}</strong><small>{selectedPreference.label}</small></th>
+                  {comparedBranches.map((branch) => {
+                    const score = preferenceResult.scores.get(branch.id);
+                    const isBest = branch.id === preferenceResult.preferred.id;
+                    return (
+                      <td className={isBest ? "matrix-best" : ""} key={branch.id}>
+                        <span>{score === null || score === undefined ? "—" : `${score}/100`}</span>
+                        {score === null && <small>{copy.unavailableForOutcome}</small>}
+                        {isBest && <b className="winner-check" aria-label={copy.bestFitNow}>✓</b>}
+                      </td>
+                    );
+                  })}
+                </tr>
                 {comparisonRows.map((row) => {
                   const scores = comparedBranches.map(row.score);
                   const best = row.direction === "lower" ? Math.min(...scores) : Math.max(...scores);
@@ -529,7 +676,7 @@ export function TripForkApp() {
             <div className="branch-grid" style={{ "--branch-count": comparedBranches.length } as React.CSSProperties}>
               {comparedBranches.map((branch) => {
                 const index = activeTrip.branches.findIndex((item) => item.id === branch.id);
-                const isRecommended = branch.id === recommendation.branchId;
+                const isRecommended = branch.id === displayRecommendation.branchId;
                 const isCommitted = branch.id === activeTrip.committedBranchId;
                 return (
                   <article className={`branch-card ${isRecommended ? "recommended" : ""}`} id={`branch-${branch.id}`} key={branch.id} style={{ "--accent": branchAccents[index] } as React.CSSProperties}>
@@ -565,7 +712,7 @@ export function TripForkApp() {
             <div className="action-heading"><span>{copy.decisionDesk}</span><b>{activeTrip.checklist.filter((item) => item.done).length}/{activeTrip.checklist.length}</b></div>
             <h3>{copy.whatNext}</h3>
             <p>{copy.reminderDisclaimer}</p>
-            <div className="recommended-actions">{recommendation.actions.map((action) => <div key={action}><span>→</span>{action}</div>)}</div>
+            <div className="recommended-actions">{displayRecommendation.actions.map((action) => <div key={action}><span>→</span>{action}</div>)}</div>
             <div className="checklist">
               {activeTrip.checklist.map((item) => (
                 <label className={item.done ? "done" : ""} key={item.id}>
@@ -574,7 +721,7 @@ export function TripForkApp() {
                 </label>
               ))}
             </div>
-            <button className="button button-dark panel-save" onClick={saveCurrentTrip} disabled={activeTrip.id === sampleTrip.id || isSaving}>{copy.saveDecision}</button>
+            <button className="button button-dark panel-save" onClick={saveCurrentTrip} disabled={activeIsSample || isSaving}>{copy.saveDecision}</button>
           </aside>
         </div>
       </section>

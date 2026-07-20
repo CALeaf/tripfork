@@ -39,6 +39,9 @@ test("server-renders the TripFork decision workspace", async () => {
   assert.match(html, /Trip pace/);
   assert.match(html, /Door-to-door transit/);
   assert.match(html, /Luggage freedom/);
+  assert.match(html, /What matters most on this trip/);
+  assert.match(html, /Overall fit/);
+  assert.match(html, /Hawaii weather change/);
   assert.match(html, /Fork a new trip/);
   assert.match(html, />中文</);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);

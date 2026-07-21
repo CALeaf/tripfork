@@ -47,10 +47,35 @@ test("server-renders the TripFork decision workspace", async () => {
   assert.match(html, /Southwest Grand Circle/);
   assert.match(html, /California Highway 1/);
   assert.match(html, /Use this itinerary/);
+  assert.match(html, /Real routes you can make your own/);
+  assert.match(html, /From red rock to neon/);
+  assert.match(html, /Publish as a guide/);
   assert.match(html, /Route at a glance/);
   assert.match(html, /Fork a new trip/);
   assert.match(html, />中文</);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
+});
+
+test("server-renders a public, forkable Leaves Notes guide", async () => {
+  const response = await request("/guide/leaves-southwest-loop");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /From red rock to neon/);
+  assert.match(html, /She Leaves Notes/);
+  assert.match(html, /The version that was actually traveled/);
+  assert.match(html, /Fork this trip/);
+  assert.match(html, /Actual route/);
+  assert.match(html, /Read the original story on She Leaves Notes/);
+});
+
+test("returns a featured guide that can be forked without sign-in", async () => {
+  const response = await request("/api/guides?id=leaves-hawaii-big-island", { headers: { accept: "application/json" } });
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.guide.author, "She Leaves Notes");
+  assert.equal(payload.guide.editorVerified, true);
+  assert.equal(payload.guide.forkInput.destination, "Hawaii Big Island");
+  assert.equal(payload.guide.branch.routePoints.length > 1, true);
 });
 
 test("returns a Chinese comparison when Chinese is selected", async () => {

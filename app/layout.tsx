@@ -26,20 +26,20 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     metadataBase: new URL(origin),
-    title: "TripFork — Compare every way your trip could go",
+    title: "TripFork — Plan it. Publish it. Fork it.",
     description:
-      "An uncertainty-aware travel planner for comparing complete itineraries, tradeoffs, and what-if branches.",
+      "Compare complete itineraries, publish the route you actually traveled, and fork any guide into a trip that fits you.",
     openGraph: {
       title: "TripFork",
-      description: "Compare every way your trip could go.",
+      description: "Plan it. Publish it. Fork it.",
       type: "website",
-      images: [{ url: "/og.png", width: 1730, height: 909, alt: "TripFork itinerary branches" }],
+      images: [{ url: "/og-community.png", width: 1729, height: 910, alt: "TripFork routes becoming a published, forkable travel guide" }],
     },
     twitter: {
       card: "summary_large_image",
       title: "TripFork",
-      description: "Compare every way your trip could go.",
-      images: ["/og.png"],
+      description: "Plan it. Publish it. Fork it.",
+      images: ["/og-community.png"],
     },
   };
 }

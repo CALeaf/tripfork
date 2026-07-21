@@ -31,6 +31,11 @@ route changed repeatedly around **The Wave** permit lottery.
 
 Users can:
 
+- publish any selected itinerary branch as a durable public travel guide with
+  an author, actual cost, story, highlights, practical notes, map, and unique
+  share URL;
+- fork a public guide back into a fully editable TripFork input without
+  changing the original author’s route;
 - start from a curated Southwest, Hawaii Big Island, or California Highway 1
   itinerary instead of a blank form, then customize every input;
 - enter destination, dates, budget, current route, must-haves, fixed bookings,
@@ -62,6 +67,11 @@ Users can:
 The public demo includes a second one-click real scenario: a seven-day Hawaii
 Big Island trip affected by volcano activity, Mauna Kea weather, fixed
 manta-ray diving, and swimming-safety constraints.
+
+It also includes two field-tested **She Leaves Notes** guides. These are seed
+content, not a closed catalog: any traveler can publish the route they actually
+took, and every published guide can become someone else’s editable starting
+point.
 
 ## How GPT-5.6 is used
 

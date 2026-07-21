@@ -1,12 +1,15 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { branchAccents, type DecisionStatus, type TripDocument, type TripInput } from "@/lib/trip-types";
 import { sampleHawaiiTrip, sampleHawaiiTripZh, sampleTrip, sampleTripZh } from "@/lib/sample-trip";
 import { localeNames, transportCopy, translateComplexity, translateKind, translateLevel, uiCopy, type Locale } from "@/lib/i18n";
 import { tripGuides, type TripGuide } from "@/lib/trip-guides";
 import { inferRoutePoints } from "@/lib/route-points";
 import { RouteMap } from "@/app/route-map";
+import { featuredPublishedGuides } from "@/lib/featured-guides";
+import type { GuideDraft, PublishedGuide } from "@/lib/guide-types";
 
 function createEmptyInput(locale: Locale): TripInput {
   return {
@@ -114,6 +117,30 @@ function getOwnerId() {
   return id;
 }
 
+function splitGuideItems(value: string) {
+  return value.split("\n");
+}
+
+function draftFromTrip(trip: TripDocument, branchId: string, locale: Locale): GuideDraft {
+  const branch = trip.branches.find((item) => item.id === branchId) ?? trip.branches[0];
+  const input = editableInputFromTrip(trip, locale);
+  return {
+    title: trip.title,
+    destination: trip.destination,
+    author: "",
+    tripDate: trip.dateSummary,
+    duration: `${branch.days} ${locale === "zh" ? "天" : "days"}`,
+    actualCost: trip.budget || formatMoney(branch.cost, locale),
+    summary: branch.summary,
+    story: trip.sourceNotes || input.notes,
+    bestFor: trip.recommendations[trip.decision.status].rationale,
+    highlights: branch.timeline.slice(0, 4).map((day) => day.title),
+    tips: branch.tradeoffs.slice(0, 3),
+    sourceUrl: "",
+    branchId: branch.id,
+  };
+}
+
 function tripMarkdown(
   trip: TripDocument,
   locale: Locale,
@@ -180,6 +207,10 @@ export function TripForkApp() {
   const [notice, setNotice] = useState("Showing the sample trip. Create yours when you’re ready.");
   const [isSaving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [communityGuides, setCommunityGuides] = useState<PublishedGuide[]>(featuredPublishedGuides);
+  const [isGuideComposerOpen, setGuideComposerOpen] = useState(false);
+  const [guideDraft, setGuideDraft] = useState<GuideDraft>(() => draftFromTrip(sampleTrip, sampleTrip.branches[1].id, "en"));
+  const [isPublishingGuide, setPublishingGuide] = useState(false);
   const ownerId = useRef("");
   const copy = uiCopy[locale];
   const localizedSamples = locale === "zh"
@@ -347,6 +378,25 @@ export function TripForkApp() {
       .then((response) => (response.ok ? response.json() : Promise.reject()))
       .then((payload) => setSavedTrips(payload.trips ?? []))
       .catch(() => setNotice(uiCopy[savedLocale].savedUnavailable));
+    fetch("/api/guides")
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((payload) => setCommunityGuides(payload.guides ?? featuredPublishedGuides))
+      .catch(() => setCommunityGuides(featuredPublishedGuides));
+    const forkId = new URLSearchParams(window.location.search).get("fork");
+    if (forkId && /^[a-zA-Z0-9-]{8,80}$/.test(forkId)) {
+      fetch(`/api/guides?id=${encodeURIComponent(forkId)}`)
+        .then((response) => (response.ok ? response.json() : Promise.reject()))
+        .then((payload) => {
+          const guide = payload.guide as PublishedGuide;
+          setEditingInputs(false);
+          setEditingTripId(null);
+          setTripInput({ ...guide.forkInput, title: `${guide.title} — my version`, transportModes: [...guide.forkInput.transportModes] });
+          setComposerOpen(true);
+          setNotice(savedLocale === "zh" ? `已经把“${guide.title}”复制成你的行程，改完就可以重新对比。` : `“${guide.title}” is now your editable trip. Change anything before comparing.`);
+          window.history.replaceState({}, "", "/");
+        })
+        .catch(() => setNotice(savedLocale === "zh" ? "暂时打不开这篇攻略。" : "That guide could not be opened."));
+    }
     return () => window.clearTimeout(localeTimer);
   }, []);
 
@@ -415,6 +465,55 @@ export function TripForkApp() {
     setEditingTripId(activeIsSample ? null : activeTrip.id);
     setTripInput(editableInputFromTrip(activeTrip, locale));
     setComposerOpen(true);
+  }
+
+  function forkPublishedGuide(guide: PublishedGuide) {
+    setEditingInputs(false);
+    setEditingTripId(null);
+    setTripInput({ ...guide.forkInput, title: locale === "zh" ? `${guide.title} · 我的版本` : `${guide.title} — my version`, transportModes: [...guide.forkInput.transportModes] });
+    setNotice(locale === "zh" ? "攻略已经复制到你的行程里，任何内容都可以改。" : "The guide is now your editable trip. Every input can be changed.");
+    setComposerOpen(true);
+  }
+
+  function openGuideComposer(branchId = activeTrip.committedBranchId ?? displayRecommendation.branchId) {
+    setGuideDraft(draftFromTrip(activeTrip, branchId, locale));
+    setGuideComposerOpen(true);
+  }
+
+  async function publishGuide(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const branch = activeTrip.branches.find((item) => item.id === guideDraft.branchId) ?? activeTrip.branches[0];
+    const routePoints = branch.routePoints ?? inferRoutePoints(
+      `${activeTrip.destination} ${activeTrip.sourceNotes} ${activeTrip.inputSummary?.places ?? ""}`,
+      branch.transportMode,
+      branch.id,
+      locale,
+    );
+    setPublishingGuide(true);
+    try {
+      const response = await fetch("/api/guides", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          owner: ownerId.current,
+          guide: {
+            ...guideDraft,
+            highlights: guideDraft.highlights.map((item) => item.trim()).filter(Boolean),
+            tips: guideDraft.tips.map((item) => item.trim()).filter(Boolean),
+            branch: { ...branch, routePoints },
+            forkInput: editableInputFromTrip(activeTrip, locale),
+          },
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "Could not publish this guide.");
+      window.location.href = `/guide/${payload.guide.id}`;
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : locale === "zh" ? "刚刚没发布成功，再试一次吧。" : "Could not publish this guide.");
+      setGuideComposerOpen(false);
+    } finally {
+      setPublishingGuide(false);
+    }
   }
 
   function setStatus(status: DecisionStatus) {
@@ -544,7 +643,7 @@ export function TripForkApp() {
           <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>
           <span>TripFork</span>
         </a>
-        <nav aria-label={locale === "zh" ? "主导航" : "Main navigation"}><a href="#compare">{copy.navCompare}</a><a href="#actions">{copy.navActions}</a></nav>
+        <nav aria-label={locale === "zh" ? "主导航" : "Main navigation"}><a href="#community-guides">{copy.navGuides}</a><a href="#compare">{copy.navCompare}</a><a href="#actions">{copy.navActions}</a></nav>
         <div className="header-actions">
           <div className="language-switch" role="group" aria-label={copy.language}>
             {(["zh", "en"] as Locale[]).map((option) => (
@@ -597,6 +696,27 @@ export function TripForkApp() {
         </div>
       </section>
 
+      <section className="community-library" id="community-guides" aria-labelledby="community-guides-title">
+        <div className="community-heading">
+          <div><span className="eyebrow">{copy.communityEyebrow}</span><h2 id="community-guides-title">{copy.communityTitle}</h2></div>
+          <p>{copy.communityBody}</p>
+        </div>
+        <div className="community-guide-grid">
+          {communityGuides.map((guide, index) => (
+            <article className="community-guide-card" key={guide.id} style={{ "--guide-accent": branchAccents[index % branchAccents.length] } as React.CSSProperties}>
+              <div className="community-guide-art"><span>{guide.duration}</span><i /><i /><b>{guide.destination}</b></div>
+              <div className="community-guide-body">
+                <div className="community-byline"><span>{guide.editorVerified ? copy.fieldTested : copy.travelerPublished}</span><b>{guide.author}</b></div>
+                <h3>{guide.title}</h3>
+                <p>{guide.summary}</p>
+                <div className="community-guide-meta"><span>{guide.tripDate}</span><span>{guide.actualCost}</span><span>{guide.branch.days} {copy.days}</span></div>
+                <div className="community-guide-actions"><Link href={`/guide/${guide.id}`}>{copy.viewGuide} ↗</Link><button type="button" onClick={() => forkPublishedGuide(guide)}>{copy.forkGuide} →</button></div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="workspace" id="compare">
         <div className="workspace-bar">
           <label>
@@ -614,6 +734,7 @@ export function TripForkApp() {
             {activeIsSaved && <button className="text-button danger" onClick={deleteCurrentTrip}>{copy.delete}</button>}
             <button className="button button-quiet" onClick={editInputs}>{copy.editInputs}</button>
             <button className="button button-quiet" onClick={exportTrip}>{copy.export}</button>
+            <button className="button button-quiet publish-guide-button" onClick={() => openGuideComposer()}>{copy.publishGuide}</button>
             <button className="button button-dark" onClick={saveCurrentTrip} disabled={isSaving || activeIsSample}>
               {isSaving ? copy.saving : dirty ? copy.saveChanges : copy.saved}
             </button>
@@ -827,6 +948,7 @@ export function TripForkApp() {
               ))}
             </div>
             <button className="button button-dark panel-save" onClick={saveCurrentTrip} disabled={activeIsSample || isSaving}>{copy.saveDecision}</button>
+            <button className="button button-quiet panel-publish" onClick={() => openGuideComposer()}>{copy.publishGuide} ↗</button>
           </aside>
         </div>
       </section>
@@ -880,6 +1002,37 @@ export function TripForkApp() {
                 <label><span>{copy.constraints}</span><textarea rows={3} value={tripInput.constraints} onChange={(e) => setTripInput({ ...tripInput, constraints: e.target.value })} placeholder={locale === "zh" ? "最长驾驶时间、行动能力、预算、需要请假的工作日" : "Max driving, mobility, budget, workdays"} /></label>
               </div>
               <div className="composer-footer"><small>{copy.liveDataDisclaimer}</small><button className="button button-dark" disabled={isGenerating}>{isGenerating ? (isEditingInputs ? copy.rebuilding : copy.generating) : (isEditingInputs ? copy.rebuildComparison : copy.buildComparison)}</button></div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {isGuideComposerOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => !isPublishingGuide && setGuideComposerOpen(false)}>
+          <section className="composer guide-composer" role="dialog" aria-modal="true" aria-labelledby="guide-composer-title" onMouseDown={(event) => event.stopPropagation()}>
+            <button className="modal-close" onClick={() => setGuideComposerOpen(false)} aria-label={copy.close}>×</button>
+            <span className="eyebrow">{copy.publishGuideEyebrow}</span>
+            <h2 id="guide-composer-title">{copy.publishGuideTitle}</h2>
+            <p>{copy.publishGuideBody}</p>
+            <form onSubmit={publishGuide} className="trip-form">
+              <div className="form-grid">
+                <label><span>{copy.guideAuthor}</span><input required maxLength={80} value={guideDraft.author} onChange={(event) => setGuideDraft({ ...guideDraft, author: event.target.value })} placeholder={locale === "zh" ? "例如：树叶" : "e.g. Leaves"} /></label>
+                <label><span>{copy.guideRouteChoice}</span><select value={guideDraft.branchId} onChange={(event) => setGuideDraft({ ...guideDraft, branchId: event.target.value })}>{activeTrip.branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>
+                <label><span>{copy.tripName}</span><input required maxLength={160} value={guideDraft.title} onChange={(event) => setGuideDraft({ ...guideDraft, title: event.target.value })} /></label>
+                <label><span>{copy.destination}</span><input required maxLength={160} value={guideDraft.destination} onChange={(event) => setGuideDraft({ ...guideDraft, destination: event.target.value })} /></label>
+                <label><span>{copy.guideTripDate}</span><input required maxLength={80} value={guideDraft.tripDate} onChange={(event) => setGuideDraft({ ...guideDraft, tripDate: event.target.value })} /></label>
+                <label><span>{copy.guideDuration}</span><input required maxLength={80} value={guideDraft.duration} onChange={(event) => setGuideDraft({ ...guideDraft, duration: event.target.value })} /></label>
+                <label><span>{copy.guideActualCost}</span><input required maxLength={80} value={guideDraft.actualCost} onChange={(event) => setGuideDraft({ ...guideDraft, actualCost: event.target.value })} placeholder={locale === "zh" ? "$4,000 / 2 人" : "$4,000 for two"} /></label>
+                <label><span>{copy.guideSourceUrl}</span><input type="url" maxLength={500} value={guideDraft.sourceUrl} onChange={(event) => setGuideDraft({ ...guideDraft, sourceUrl: event.target.value })} placeholder="https://…" /></label>
+              </div>
+              <label><span>{copy.guideSummary}</span><textarea required maxLength={600} rows={3} value={guideDraft.summary} onChange={(event) => setGuideDraft({ ...guideDraft, summary: event.target.value })} /></label>
+              <label><span>{copy.guideStory}</span><textarea required maxLength={5000} rows={5} value={guideDraft.story} onChange={(event) => setGuideDraft({ ...guideDraft, story: event.target.value })} /></label>
+              <label><span>{copy.guideBestForInput}</span><textarea required maxLength={500} rows={2} value={guideDraft.bestFor} onChange={(event) => setGuideDraft({ ...guideDraft, bestFor: event.target.value })} /></label>
+              <div className="form-grid">
+                <label><span>{copy.guideHighlightsInput}<small>{copy.onePerLine}</small></span><textarea required rows={5} value={guideDraft.highlights.join("\n")} onChange={(event) => setGuideDraft({ ...guideDraft, highlights: splitGuideItems(event.target.value) })} /></label>
+                <label><span>{copy.guideTipsInput}<small>{copy.onePerLine}</small></span><textarea required rows={5} value={guideDraft.tips.join("\n")} onChange={(event) => setGuideDraft({ ...guideDraft, tips: splitGuideItems(event.target.value) })} /></label>
+              </div>
+              <div className="composer-footer"><small>{copy.publicGuideNotice}</small><button className="button button-dark" disabled={isPublishingGuide}>{isPublishingGuide ? copy.publishingGuide : copy.publishNow}</button></div>
             </form>
           </section>
         </div>

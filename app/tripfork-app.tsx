@@ -211,6 +211,7 @@ export function TripForkApp() {
   const [isGuideComposerOpen, setGuideComposerOpen] = useState(false);
   const [guideDraft, setGuideDraft] = useState<GuideDraft>(() => draftFromTrip(sampleTrip, sampleTrip.branches[1].id, "en"));
   const [isPublishingGuide, setPublishingGuide] = useState(false);
+  const [trialStep, setTrialStep] = useState<number | null>(null);
   const ownerId = useRef("");
   const copy = uiCopy[locale];
   const localizedSamples = locale === "zh"
@@ -443,9 +444,14 @@ export function TripForkApp() {
   function choosePreference(nextPreference: PreferenceId) {
     setPreference(nextPreference);
     setNotice(copy.preferenceUpdated);
+    if (trialStep === 1 && nextPreference === "time") {
+      setTrialStep(2);
+      window.setTimeout(() => document.getElementById("trial-outcome")?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
+    }
   }
 
   function startNewTrip() {
+    setTrialStep(null);
     setEditingInputs(false);
     setEditingTripId(null);
     setTripInput(createEmptyInput(locale));
@@ -519,6 +525,10 @@ export function TripForkApp() {
   function setStatus(status: DecisionStatus) {
     updateActive((trip) => ({ ...trip, decision: { ...trip.decision, status } }));
     setNotice(copy.outcomeUpdated);
+    if (trialStep === 2 && status === "positive") {
+      setTrialStep(3);
+      window.setTimeout(() => document.getElementById("trial-recommendation")?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
+    }
   }
 
   async function generateTrip(event: FormEvent<HTMLFormElement>) {
@@ -599,8 +609,23 @@ export function TripForkApp() {
   }
 
   function openExample(id: string) {
+    setTrialStep(null);
     openTrip(id);
     window.setTimeout(() => document.getElementById("compare")?.scrollIntoView({ behavior: "smooth" }), 50);
+  }
+
+  function startGuidedTrial() {
+    const source = locale === "zh" ? sampleTripZh : sampleTrip;
+    const trial = { ...source, decision: { ...source.decision, status: "pending" as DecisionStatus } };
+    setActiveTrip(trial);
+    setSelected(trial.branches.map((branch) => branch.id));
+    setPreference("balanced");
+    setDifferencesOnly(false);
+    setDirty(false);
+    setComposerOpen(false);
+    setTrialStep(0);
+    setNotice(copy.trialLoaded);
+    window.setTimeout(() => document.getElementById("compare")?.scrollIntoView({ behavior: "smooth" }), 80);
   }
 
   async function deleteCurrentTrip() {
@@ -673,6 +698,23 @@ export function TripForkApp() {
         </div>
       </section>
 
+      <section className="quick-trial" aria-labelledby="quick-trial-title">
+        <div className="quick-trial-copy">
+          <span className="eyebrow">{copy.trialEyebrow}</span>
+          <h2 id="quick-trial-title">{copy.trialTitle}</h2>
+          <p>{copy.trialBody}</p>
+        </div>
+        <ol className="quick-trial-steps">
+          {[copy.trialPreviewOne, copy.trialPreviewTwo, copy.trialPreviewThree].map((label, index) => (
+            <li key={label}><span>0{index + 1}</span><strong>{label}</strong></li>
+          ))}
+        </ol>
+        <div className="quick-trial-action">
+          <button type="button" className="button button-dark" onClick={startGuidedTrial}>{copy.trialStart}</button>
+          <small>{copy.trialPromise}</small>
+        </div>
+      </section>
+
       <section className="guide-library" aria-labelledby="guide-library-title">
         <div className="guide-library-heading">
           <div><span className="eyebrow">{copy.guidesEyebrow}</span><h2 id="guide-library-title">{copy.guidesTitle}</h2></div>
@@ -741,6 +783,30 @@ export function TripForkApp() {
           </div>
         </div>
 
+        {trialStep !== null && (
+          <aside className={`guided-trial guided-trial-step-${trialStep}`} aria-live="polite">
+            <div className="guided-trial-progress">
+              <span>{copy.trialProgress}</span>
+              <div><i style={{ width: `${trialStep === 3 ? 100 : trialStep * 33}%` }} /></div>
+              <b>{trialStep === 3 ? "✓" : `${trialStep + 1}/3`}</b>
+            </div>
+            <div className="guided-trial-content">
+              <div className="guided-trial-number">{trialStep === 3 ? "✓" : `0${trialStep + 1}`}</div>
+              <div>
+                <h3>{trialStep === 0 ? copy.trialStepOneTitle : trialStep === 1 ? copy.trialStepTwoTitle : trialStep === 2 ? copy.trialStepThreeTitle : copy.trialCompleteTitle}</h3>
+                <p>{trialStep === 0 ? copy.trialStepOneBody : trialStep === 1 ? copy.trialStepTwoBody : trialStep === 2 ? copy.trialStepThreeBody : copy.trialCompleteBody}</p>
+              </div>
+              <div className="guided-trial-actions">
+                {trialStep === 0 && <button type="button" className="button button-dark" onClick={() => { setTrialStep(1); window.setTimeout(() => document.getElementById("trial-priorities")?.scrollIntoView({ behavior: "smooth", block: "center" }), 80); }}>{copy.trialStepOneAction}</button>}
+                {trialStep === 1 && <button type="button" className="button button-dark" onClick={() => choosePreference("time")}>{copy.trialStepTwoAction}</button>}
+                {trialStep === 2 && <button type="button" className="button button-dark" onClick={() => setStatus("positive")}>{copy.trialStepThreeAction}</button>}
+                {trialStep === 3 && <><button type="button" className="button button-dark" onClick={() => { setTrialStep(null); editInputs(); }}>{copy.trialMakeMine}</button><button type="button" className="text-button" onClick={() => setTrialStep(null)}>{copy.trialDone}</button></>}
+              </div>
+            </div>
+            <button type="button" className="guided-trial-close" aria-label={copy.trialClose} onClick={() => setTrialStep(null)}>×</button>
+          </aside>
+        )}
+
         {notice && <div className="notice" role="status">{notice}</div>}
 
         <div className="trip-heading">
@@ -749,7 +815,7 @@ export function TripForkApp() {
             <h2>{activeTrip.title}</h2>
             <p>{activeTrip.destination} · {activeTrip.dateSummary} · {activeTrip.travelers} · {copy.budget} {activeTrip.budget}</p>
           </div>
-          <div className="status-block">
+          <div className="status-block" id="trial-outcome">
             <small>{activeTrip.decision.question}</small>
             <div className="status-control" aria-label={`${activeTrip.decision.name} status`}>
               {(["pending", "positive", "negative"] as DecisionStatus[]).map((status) => (
@@ -778,7 +844,7 @@ export function TripForkApp() {
           </details>
         )}
 
-        <div className="decision-banner">
+        <div className="decision-banner" id="trial-recommendation">
           <div className="decision-icon" aria-hidden="true">↳</div>
           <div>
             <span>{copy.recommendation} · {activeTrip.decision.status === "pending" ? copy.pending : activeTrip.decision.status === "positive" ? activeTrip.decision.positiveLabel : activeTrip.decision.negativeLabel}</span>
@@ -788,7 +854,7 @@ export function TripForkApp() {
           <button className="button button-light" onClick={() => document.getElementById(`branch-${displayRecommendation.branchId}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>{copy.viewRecommendation}</button>
         </div>
 
-        <section className="priority-panel" aria-labelledby="priority-title">
+        <section className="priority-panel" id="trial-priorities" aria-labelledby="priority-title">
           <div className="priority-heading">
             <span>{copy.priorityEyebrow}</span>
             <h3 id="priority-title">{copy.priorityTitle}</h3>

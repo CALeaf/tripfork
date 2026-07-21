@@ -31,6 +31,8 @@ route changed repeatedly around **The Wave** permit lottery.
 
 Users can:
 
+- complete a no-sign-in, no-typing, 60-second guided trial that demonstrates
+  comparison, preference re-scoring, and an uncertainty-driven route switch;
 - publish any selected itinerary branch as a durable public travel guide with
   an author, actual cost, story, highlights, practical notes, map, and unique
   share URL;
@@ -84,6 +86,9 @@ Structured Outputs.
 
 The app has an explicit demo fallback so the complete creation, comparison,
 decision, save, and export loop remains testable without an API key.
+
+The planned sub-three-minute judging walkthrough is in
+[`DEMO_VIDEO_SCRIPT.md`](./DEMO_VIDEO_SCRIPT.md).
 
 ## Run locally
 

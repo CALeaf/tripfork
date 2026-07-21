@@ -31,6 +31,9 @@ test("server-renders the TripFork decision workspace", async () => {
   const html = await response.text();
   assert.match(html, /<title>TripFork/);
   assert.match(html, /Compare every way/);
+  assert.match(html, /Make one travel decision in 60 seconds/);
+  assert.match(html, /Start the guided trial/);
+  assert.match(html, /No sign-in · No typing · Real product/);
   assert.match(html, /What if we win The Wave/);
   assert.match(html, /Keep the 6-day loop/);
   assert.match(html, /Win \+ fly to Vegas/);

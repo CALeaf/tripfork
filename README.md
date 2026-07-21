@@ -68,10 +68,12 @@ The public demo includes a second one-click real scenario: a seven-day Hawaii
 Big Island trip affected by volcano activity, Mauna Kea weather, fixed
 manta-ray diving, and swimming-safety constraints.
 
-It also includes two field-tested **She Leaves Notes** guides. These are seed
-content, not a closed catalog: any traveler can publish the route they actually
-took, and every published guide can become someone else’s editable starting
-point.
+It also includes all ten field-tested **She Leaves Notes** posts as structured,
+mapped guides—from Hawaii and the American Southwest to Yukon, Yellowstone,
+Banff, eastern Canada, Cancún, Toronto, and California’s giant sequoias. These
+are seed content, not a closed catalog: any traveler can publish the route they
+actually took, and every published guide can become someone else’s editable
+starting point.
 
 ## How GPT-5.6 is used
 

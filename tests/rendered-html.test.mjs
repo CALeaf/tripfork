@@ -49,6 +49,9 @@ test("server-renders the TripFork decision workspace", async () => {
   assert.match(html, /Use this itinerary/);
   assert.match(html, /Real routes you can make your own/);
   assert.match(html, /From red rock to neon/);
+  assert.match(html, /Staggering giants/);
+  assert.match(html, /Cloudy days, impossibly blue/);
+  assert.match(html, /Snow at Lake Louise, kangaroos in Kelowna/);
   assert.match(html, /Publish as a guide/);
   assert.match(html, /Route at a glance/);
   assert.match(html, /Fork a new trip/);
@@ -76,6 +79,31 @@ test("returns a featured guide that can be forked without sign-in", async () => 
   assert.equal(payload.guide.editorVerified, true);
   assert.equal(payload.guide.forkInput.destination, "Hawaii Big Island");
   assert.equal(payload.guide.branch.routePoints.length > 1, true);
+});
+
+test("serves every Leaves Notes post as a mapped, forkable guide", async () => {
+  const guideIds = [
+    "leaves-southwest-loop",
+    "leaves-hawaii-big-island",
+    "leaves-sequoia-kings-canyon",
+    "leaves-kilauea-eruption-timing",
+    "leaves-eastern-canada-loop",
+    "leaves-yukon-tombstone",
+    "leaves-toronto-niagara-no-car",
+    "leaves-yellowstone-vancouver",
+    "leaves-cancun-christmas",
+    "leaves-banff-vancouver-loop",
+  ];
+
+  for (const id of guideIds) {
+    const response = await request(`/api/guides?id=${id}`, { headers: { accept: "application/json" } });
+    assert.equal(response.status, 200, id);
+    const payload = await response.json();
+    assert.equal(payload.guide.author, "She Leaves Notes", id);
+    assert.match(payload.guide.sourceUrl, /^https:\/\/leavesnotes\.com\/posts\//, id);
+    assert.equal(payload.guide.branch.routePoints.length > 1, true, id);
+    assert.equal(payload.guide.forkInput.notes.length > 0, true, id);
+  }
 });
 
 test("returns a Chinese comparison when Chinese is selected", async () => {

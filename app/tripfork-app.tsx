@@ -212,6 +212,7 @@ export function TripForkApp() {
   const [guideDraft, setGuideDraft] = useState<GuideDraft>(() => draftFromTrip(sampleTrip, sampleTrip.branches[1].id, "en"));
   const [isPublishingGuide, setPublishingGuide] = useState(false);
   const [trialStep, setTrialStep] = useState<number | null>(null);
+  const [showAllGuides, setShowAllGuides] = useState(false);
   const ownerId = useRef("");
   const copy = uiCopy[locale];
   const localizedSamples = locale === "zh"
@@ -715,50 +716,6 @@ export function TripForkApp() {
         </div>
       </section>
 
-      <section className="guide-library" aria-labelledby="guide-library-title">
-        <div className="guide-library-heading">
-          <div><span className="eyebrow">{copy.guidesEyebrow}</span><h2 id="guide-library-title">{copy.guidesTitle}</h2></div>
-          <p>{copy.guidesBody}</p>
-        </div>
-        <div className="guide-grid">
-          {tripGuides.map((guide) => (
-            <article className={`guide-card guide-${guide.tone}`} key={guide.id}>
-              <div className="guide-art" aria-hidden="true"><i /><i /><i /><span>{guide.duration[locale]}</span></div>
-              <div className="guide-card-body">
-                <span className="guide-kicker">{guide.kicker[locale]}</span>
-                <h3>{guide.title[locale]}</h3>
-                <p>{guide.summary[locale]}</p>
-                <div className="guide-route">{guide.route[locale]}</div>
-                <div className="guide-best"><span>{copy.guideBestFor}</span><strong>{guide.bestFor[locale]}</strong></div>
-                <ul>{guide.highlights[locale].map((highlight) => <li key={highlight}>✓ {highlight}</li>)}</ul>
-                <button type="button" onClick={() => applyGuide(guide)}>{copy.useGuide}</button>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="community-library" id="community-guides" aria-labelledby="community-guides-title">
-        <div className="community-heading">
-          <div><span className="eyebrow">{copy.communityEyebrow}</span><h2 id="community-guides-title">{copy.communityTitle}</h2></div>
-          <p>{copy.communityBody}</p>
-        </div>
-        <div className="community-guide-grid">
-          {communityGuides.map((guide, index) => (
-            <article className="community-guide-card" key={guide.id} style={{ "--guide-accent": branchAccents[index % branchAccents.length] } as React.CSSProperties}>
-              <div className="community-guide-art"><span>{guide.duration}</span><i /><i /><b>{guide.destination}</b></div>
-              <div className="community-guide-body">
-                <div className="community-byline"><span>{guide.editorVerified ? copy.fieldTested : copy.travelerPublished}</span><b>{guide.author}</b></div>
-                <h3>{guide.title}</h3>
-                <p>{guide.summary}</p>
-                <div className="community-guide-meta"><span>{guide.tripDate}</span><span>{guide.actualCost}</span><span>{guide.branch.days} {copy.days}</span></div>
-                <div className="community-guide-actions"><Link href={`/guide/${guide.id}`}>{copy.viewGuide} ↗</Link><button type="button" onClick={() => forkPublishedGuide(guide)}>{copy.forkGuide} →</button></div>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
       <section className="workspace" id="compare">
         <div className="workspace-bar">
           <label>
@@ -1023,6 +980,55 @@ export function TripForkApp() {
         <div><span className="section-number">01</span><h3>{copy.howOneTitle}</h3><p>{copy.howOneBody}</p></div>
         <div><span className="section-number">02</span><h3>{copy.howTwoTitle}</h3><p>{copy.howTwoBody}</p></div>
         <div><span className="section-number">03</span><h3>{copy.howThreeTitle}</h3><p>{copy.howThreeBody}</p></div>
+      </section>
+
+      <section className="guide-library" aria-labelledby="guide-library-title">
+        <div className="guide-library-heading">
+          <div><span className="eyebrow">{copy.guidesEyebrow}</span><h2 id="guide-library-title">{copy.guidesTitle}</h2></div>
+          <p>{copy.guidesBody}</p>
+        </div>
+        <div className="guide-grid">
+          {tripGuides.map((guide) => (
+            <article className={`guide-card guide-${guide.tone}`} key={guide.id}>
+              <div className="guide-art" aria-hidden="true"><i /><i /><i /><span>{guide.duration[locale]}</span></div>
+              <div className="guide-card-body">
+                <span className="guide-kicker">{guide.kicker[locale]}</span>
+                <h3>{guide.title[locale]}</h3>
+                <p>{guide.summary[locale]}</p>
+                <div className="guide-route">{guide.route[locale]}</div>
+                <div className="guide-best"><span>{copy.guideBestFor}</span><strong>{guide.bestFor[locale]}</strong></div>
+                <ul>{guide.highlights[locale].map((highlight) => <li key={highlight}>✓ {highlight}</li>)}</ul>
+                <button type="button" onClick={() => applyGuide(guide)}>{copy.useGuide}</button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="community-library" id="community-guides" aria-labelledby="community-guides-title">
+        <div className="community-heading">
+          <div><span className="eyebrow">{copy.communityEyebrow}</span><h2 id="community-guides-title">{copy.communityTitle}</h2></div>
+          <p>{copy.communityBody}</p>
+        </div>
+        <div className="community-guide-grid">
+          {(showAllGuides ? communityGuides : communityGuides.slice(0, 4)).map((guide, index) => (
+            <article className="community-guide-card" key={guide.id} style={{ "--guide-accent": branchAccents[index % branchAccents.length] } as React.CSSProperties}>
+              <div className="community-guide-art"><span>{guide.duration}</span><i /><i /><b>{guide.destination}</b></div>
+              <div className="community-guide-body">
+                <div className="community-byline"><span>{guide.editorVerified ? copy.fieldTested : copy.travelerPublished}</span><b>{guide.author}</b></div>
+                <h3>{guide.title}</h3>
+                <p>{guide.summary}</p>
+                <div className="community-guide-meta"><span>{guide.tripDate}</span><span>{guide.actualCost}</span><span>{guide.branch.days} {copy.days}</span></div>
+                <div className="community-guide-actions"><Link href={`/guide/${guide.id}`}>{copy.viewGuide} ↗</Link><button type="button" onClick={() => forkPublishedGuide(guide)}>{copy.forkGuide} →</button></div>
+              </div>
+            </article>
+          ))}
+        </div>
+        {communityGuides.length > 4 && (
+          <button type="button" className="community-guide-toggle" onClick={() => setShowAllGuides((current) => !current)} aria-expanded={showAllGuides}>
+            {showAllGuides ? copy.showFewerGuides : copy.viewAllGuides.replace("{count}", String(communityGuides.length))}
+          </button>
+        )}
       </section>
 
       <footer><div className="brand"><span className="brand-mark"><i /><i /><i /></span><span>TripFork</span></div><p>{copy.footerTagline}</p><span>{copy.builtFor}</span></footer>

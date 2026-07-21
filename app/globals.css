@@ -612,6 +612,8 @@ a {
 .community-guide-actions a { align-items: center; background: #e8e6de; display: inline-flex; }
 .community-guide-actions button { background: var(--ink); color: white; }
 .community-guide-actions a:hover, .community-guide-actions button:hover { background: var(--guide-accent); color: white; }
+.community-guide-toggle { background: transparent; border: 1px solid #56635e; border-radius: 999px; color: #d8e2de; cursor: pointer; display: block; font-size: 10px; font-weight: 850; margin: 28px auto 0; min-height: 43px; padding: 0 22px; }
+.community-guide-toggle:hover { background: white; border-color: white; color: var(--ink); }
 
 .workspace {
   background: #ebe8e0;

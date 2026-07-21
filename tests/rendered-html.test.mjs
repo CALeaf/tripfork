@@ -53,13 +53,24 @@ test("server-renders the TripFork decision workspace", async () => {
   assert.match(html, /Real routes you can make your own/);
   assert.match(html, /From red rock to neon/);
   assert.match(html, /Staggering giants/);
-  assert.match(html, /Cloudy days, impossibly blue/);
-  assert.match(html, /Snow at Lake Louise, kangaroos in Kelowna/);
+  assert.match(html, /See all 10 traveler guides/);
+  assert.doesNotMatch(html, /Cloudy days, impossibly blue/);
+  assert.doesNotMatch(html, /Snow at Lake Louise, kangaroos in Kelowna/);
   assert.match(html, /Publish as a guide/);
   assert.match(html, /Route at a glance/);
   assert.match(html, /Fork a new trip/);
   assert.match(html, />中文</);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
+
+  const trialIndex = html.indexOf("Make one travel decision in 60 seconds");
+  const comparisonIndex = html.indexOf("Every tradeoff, side by side");
+  const howIndex = html.indexOf("Bring the messy plan");
+  const starterIndex = html.indexOf("Not sure where to begin? Borrow an itinerary");
+  const communityIndex = html.indexOf("Real routes you can make your own");
+  assert.equal(trialIndex < comparisonIndex, true);
+  assert.equal(comparisonIndex < howIndex, true);
+  assert.equal(howIndex < starterIndex, true);
+  assert.equal(starterIndex < communityIndex, true);
 });
 
 test("server-renders a public, forkable Leaves Notes guide", async () => {

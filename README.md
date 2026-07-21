@@ -77,6 +77,27 @@ are seed content, not a closed catalog: any traveler can publish the route they
 actually took, and every published guide can become someone else’s editable
 starting point.
 
+## How Codex was used
+
+Codex was the build-time collaborator for TripFork across one continuous
+product workflow. I used it to:
+
+- turn my Hawaii and Southwest travel stories into structured itineraries and
+  uncertainty-aware product requirements;
+- design the comparison model so every branch preserves fixed bookings,
+  must-haves, constraints, assumptions, and explicit tradeoffs;
+- implement and refine the bilingual React interface, decision table,
+  preference re-scoring, editable inputs, route maps, public guides, and guide
+  forking;
+- wire Cloudflare D1 persistence, Drizzle migrations, validation, tests, and
+  deployment; and
+- repeatedly test the no-login judging path and evolve the project from a
+  single-scenario demo into a usable travel product.
+
+Codex helped build and iterate on the product; GPT-5.6 is the runtime reasoning
+engine described below. Keeping those roles separate made the application and
+the submission reproducible and easy to evaluate.
+
 ## How GPT-5.6 is used
 
 `POST /api/compare` sends the travel situation to the OpenAI Responses API.
@@ -87,7 +108,8 @@ Structured Outputs.
 The app has an explicit demo fallback so the complete creation, comparison,
 decision, save, and export loop remains testable without an API key.
 
-The planned sub-three-minute judging walkthrough is in
+The final 2:01 judging walkthrough is available on
+[YouTube](https://youtu.be/bpOqGtjmq3M), and its narration source is in
 [`DEMO_VIDEO_SCRIPT.md`](./DEMO_VIDEO_SCRIPT.md).
 
 ## Run locally
